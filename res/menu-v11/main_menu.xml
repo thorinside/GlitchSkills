@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item android:id="@+id/menu_item_log_out" android:title="Log Out" android:visible="true" android:showAsAction="never"></item>
+    <item android:id="@+id/menu_item_refresh" android:icon="@+drawable/ic_menu_refresh_holo_light" android:title="Refresh" android:showAsAction="ifRoom"></item>
+
+</menu>
