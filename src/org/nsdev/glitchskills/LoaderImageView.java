@@ -2,7 +2,6 @@ package org.nsdev.glitchskills;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
-
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
@@ -28,6 +27,7 @@ public class LoaderImageView extends LinearLayout {
     private Drawable mDrawable;
     private ProgressBar mSpinner;
     private ImageView mImage;
+    private String mCurrentUrl;
     
     /**
      * This is used when creating the view in XML
@@ -90,13 +90,18 @@ public class LoaderImageView extends LinearLayout {
      * @param imageUrl the url of the image you wish to load
      */
     public void setImageDrawable(final String imageUrl) {
+        
+        if (mCurrentUrl != null && mCurrentUrl.equals(imageUrl)) return;
+        
         mDrawable = null;
         mSpinner.setVisibility(View.VISIBLE);
         mImage.setVisibility(View.GONE);
         new Thread(){
+            @Override
             public void run() {
                 try {
                     mDrawable = getDrawableFromUrl(imageUrl);
+                    mCurrentUrl = imageUrl;
                     imageLoadedHandler.sendEmptyMessage(COMPLETE);
                 } catch (MalformedURLException e) {
                     imageLoadedHandler.sendEmptyMessage(FAILED);
@@ -135,7 +140,7 @@ public class LoaderImageView extends LinearLayout {
      * @throws IOException
      * @throws MalformedURLException
      */
-    private static Drawable getDrawableFromUrl(final String url) throws IOException, MalformedURLException {
+    public static Drawable getDrawableFromUrl(final String url) throws IOException, MalformedURLException {
         return Drawable.createFromStream(((java.io.InputStream)new java.net.URL(url).getContent()), "name");
     }
     

@@ -20,7 +20,7 @@
                 <item name="selectableItemBackground">@drawable/ad_selectable_background</item>
                 <item name="popupMenuStyle">@style/MyPopupMenu</item>
                 <item name="dropDownListViewStyle">@style/MyDropDownListView</item>
-             <!--    <item name="abLogo">@drawable/ad_logo</item> -->
+                <item name="abLogo">@drawable/ad_logo</item>
         <item name="actionBarTabStyle">@style/MyActionBarTabStyle</item>
         <item name="actionDropDownStyle">@style/MyDropDownNav</item>
         <item name="android:listChoiceIndicatorMultiple">@drawable/ad_btn_check_holo_light</item>

@@ -1,32 +1,59 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="org.nsdev.glitchskills" android:versionCode="3" android:versionName="1.1.1">
+    package="org.nsdev.glitchskills"
+    android:versionCode="4"
+    android:versionName="1.2.0" >
 
-    <uses-sdk android:minSdkVersion="8"
+    <uses-sdk
+        android:minSdkVersion="8"
         android:targetSdkVersion="13" />
 
-    <application android:icon="@drawable/icon"
-        android:label="@string/app_name" android:hardwareAccelerated="true">
-
-        <activity android:name=".GlitchSkillsActivity"
-            android:logo="@drawable/ad_logo" android:label="@string/app_name"
-            android:theme="@style/Theme.AndroidDevelopers"
-            android:stateNotNeeded="true" 
-            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize" android:hardwareAccelerated="true">
-            <intent-filter>
+    <application
+        android:hardwareAccelerated="true"
+        android:icon="@drawable/icon"
+        android:label="@string/app_name" >
+        <activity
+            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize"
+            android:hardwareAccelerated="true"
+            android:label=""
+            android:name=".GlitchSkillsActivity"
+            android:stateNotNeeded="true"
+            android:theme="@style/Theme.AndroidDevelopers" android:launchMode="singleInstance">
+            <intent-filter >
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter >
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="nosuchglitch" />
+            </intent-filter>
             <intent-filter>
-                <action android:name="android.intent.action.VIEW"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="nosuchglitch"/>
+                <action android:name="org.nsdev.apps.glitchskills.LEARN" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:label="@string/widget_name"
+            android:name=".LearningWidget" >
+            <intent-filter >
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/appwidget_info" />
+        </receiver>
+
+        <service android:name=".LearningWidget$UpdateService" />
+        
     </application>
-    
-    <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-    
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
 </manifest>

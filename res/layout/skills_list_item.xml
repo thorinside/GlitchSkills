@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical" android:layout_width="match_parent"
-    android:layout_height="match_parent" android:id="@+id/skill">
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical" >
+
     <org.nsdev.glitchskills.LoaderImageView
         android:src="@drawable/icon" android:id="@+id/skill_icon"
         android:layout_alignParentTop="true"
         android:layout_alignParentLeft="true" android:padding="3dp"
-        android:layout_height="106px" android:layout_width="106px" />
+        android:layout_height="75dp" android:layout_width="75dp" />
     <TextView android:text="This is where the skill description will be."
         android:id="@+id/skill_description" android:layout_width="wrap_content"
         android:layout_height="wrap_content" android:layout_below="@+id/skill_title"
@@ -20,7 +22,7 @@
         android:layout_width="wrap_content" android:layout_height="wrap_content"
         android:layout_below="@+id/skill_progress"
         android:layout_alignLeft="@+id/skill_progress" android:id="@+id/skill_time_to_learn_label"
-        android:text="Time to learn:" android:layout_marginBottom="5dp"></TextView>
+        android:text="Done in:" android:layout_marginBottom="5dp"></TextView>
     <TextView android:textAppearance="?android:attr/textAppearanceSmall"
         android:layout_width="wrap_content" android:layout_height="wrap_content"
         android:id="@+id/skill_time_to_learn"

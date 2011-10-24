@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical" android:background="#77000000" android:layout_margin="3dp" android:padding="3dp">
+
+    <ImageButton
+        android:id="@+id/skill_icon"
+        android:layout_width="75dp"
+        android:layout_height="75dp"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentTop="true"
+        android:padding="3dp"
+        android:src="@drawable/icon" android:scaleType="fitCenter"/>
+
+    <TextView
+        android:id="@+id/skill_description"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/skill_icon"
+        android:layout_below="@+id/skill_icon"
+        android:gravity="top"
+        android:text="Contacting Glitch server..."
+        android:textSize="7pt" android:layout_marginTop="5dp" android:shadowDy="0.5" android:shadowRadius="0.5" android:shadowColor="#4000" android:textColor="#fff"/>
+
+    <ProgressBar
+        android:id="@+id/skill_progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/skill_title"
+        android:layout_below="@id/skill_title">
+    </ProgressBar>
+
+    <TextView
+        android:id="@+id/skill_time_to_learn_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/skill_title"
+        android:text="ETA:"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:layout_below="@+id/skill_progress" android:textColor="#fff">
+    </TextView>
+
+    <TextView
+        android:id="@+id/skill_time_to_learn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignTop="@+id/skill_time_to_learn_label"
+        android:layout_marginLeft="5dp"
+        android:layout_toRightOf="@+id/skill_time_to_learn_label"
+        android:maxLines="3"
+        android:minLines="1"
+        android:textAppearance="?android:attr/textAppearanceSmall" android:textColor="#fff">
+    </TextView>
+
+    <TextView
+        android:id="@+id/skill_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_toRightOf="@+id/skill_icon"
+        android:text="Glitch Skills"
+        android:textSize="10pt"
+        android:textStyle="bold" android:layout_marginLeft="4dp" android:shadowColor="#000" android:shadowDy="1.0" android:shadowRadius="1.0" android:textColor="#fff">
+    </TextView>
+
+</RelativeLayout>
