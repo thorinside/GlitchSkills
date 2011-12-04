@@ -2,8 +2,11 @@ package org.nsdev.glitchskills;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.util.Date;
 import org.json.JSONObject;
 import android.app.AlarmManager;
+import android.app.Notification;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.appwidget.AppWidgetManager;
@@ -17,6 +20,7 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.SystemClock;
+import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
 import com.tinyspeck.android.Glitch;
@@ -26,7 +30,6 @@ import com.tinyspeck.android.GlitchSessionDelegate;
 
 public class LearningWidget extends AppWidgetProvider
 {
-
     private boolean alarmSet = false;
 
     @Override
@@ -94,6 +97,9 @@ public class LearningWidget extends AppWidgetProvider
                     catch (IOException e)
                     {
                     }
+                    catch (NullPointerException e)
+                    {
+                    }
                 }
                 return null;
             }
@@ -120,14 +126,36 @@ public class LearningWidget extends AppWidgetProvider
         @Override
         public void onStart(Intent intent, int startId)
         {
-            String action = null;
+            if (intent == null) return;
             
-            if (intent != null)
+            String action = intent.getAction();
+            
+            if ("FinishedNotification".equals(action))
             {
-                action = intent.getAction();
+                String text = intent.getStringExtra("text");
+                NotificationManager nm = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
+                Notification notification = new Notification(R.drawable.ic_learning_finished, text, System.currentTimeMillis());
+                notification.flags |= Notification.FLAG_AUTO_CANCEL;
+                notification.flags |= Notification.FLAG_SHOW_LIGHTS;
+                notification.defaults = 0;
+                notification.defaults |= Notification.DEFAULT_SOUND;
+                notification.ledARGB = 0xFF00FF00;
+                notification.ledOnMS = 250;
+                notification.ledOffMS = 250;
+                notification.vibrate = new long[] { 0L, 200L, 100L, 200L, 100L, 200L, 100L, 200L, 100L };
+                
+                CharSequence contentTitle = "Glitch Skills";
+                CharSequence contentText = text;
+                Intent notificationIntent = new Intent(this, GlitchSkillsActivity.class);
+                PendingIntent contentIntent = PendingIntent.getActivity(this.getApplicationContext(), 0, notificationIntent, notification.flags);
+                notification.setLatestEventInfo(this, contentTitle, contentText, contentIntent);
+
+                nm.notify(0, notification);
             }
-            
-            buildUpdate(this, action != null && action.equals("NetworkUpdate"));
+            else
+            {
+                buildUpdate(this, "NetworkUpdate".equals(action));
+            }
         }
 
         public void buildUpdate(final Context context, boolean useNetwork)
@@ -144,13 +172,13 @@ public class LearningWidget extends AppWidgetProvider
             {
                 updateViews.setImageViewResource(R.id.skill_icon, R.drawable.icon);
                 updateViews.setTextViewText(R.id.skill_title, context.getResources().getText(R.string.app_name));
-                updateViews.setTextViewText(R.id.skill_description, "I haven't got the foggiest idea who you are, so click the icon and enlighten me.");
+                updateViews.setTextViewText(R.id.skill_description, context.getString(R.string.widget_unknown_glitch));
                 
                 if (Build.VERSION.SDK_INT > Build.VERSION_CODES.GINGERBREAD)
                 {
-                    updateViews.setViewVisibility(R.id.skill_progress, View.GONE);
-                    updateViews.setViewVisibility(R.id.skill_time_to_learn, View.GONE);
-                    updateViews.setViewVisibility(R.id.skill_time_to_learn_label, View.GONE);
+                    updateViews.setViewVisibility(R.id.skill_progress, View.INVISIBLE);
+                    updateViews.setViewVisibility(R.id.skill_time_to_learn, View.INVISIBLE);
+                    updateViews.setViewVisibility(R.id.skill_time_to_learn_label, View.INVISIBLE);
                 }
                 
                 ComponentName thisWidget = new ComponentName(context, LearningWidget.class);
@@ -187,7 +215,6 @@ public class LearningWidget extends AppWidgetProvider
                                 JSONObject learning = request.response.optJSONObject("learning");
                                 if (learning == null)
                                 {
-
                                     // No skills are currently learning
                                     updateNotLearning(glitch);
 
@@ -195,14 +222,39 @@ public class LearningWidget extends AppWidgetProvider
                                 }
 
                                 String name = learning.names().optString(0);
-                                if (name == null)
-                                    return;
+                                if (name == null) return;
                                 final JSONObject skill = learning.optJSONObject(name);
 
                                 updateSkillText(updateViews, skill);
                                 
+                                resetLearningFinishedNotification(context, skill);
+                                
                                 LoadIconAsyncTask iconTask = new LoadIconAsyncTask(context, updateViews);
                                 iconTask.execute(skill.optString("icon_100"));
+                            }
+
+                            private void resetLearningFinishedNotification(Context ctx, JSONObject skill)
+                            {
+                                if (skill != null && skill.has("name") && skill.has("time_complete"))
+                                {
+                                    String text = String.format(ctx.getString(R.string.widget_skill_s_finished_learning), skill.optString("name"));
+                                    Intent alarm = new Intent(ctx, UpdateService.class);
+                                    alarm.setAction("FinishedNotification");
+                                    alarm.putExtra("text", text);
+                                    PendingIntent pend = PendingIntent.getService(ctx, 0, alarm, PendingIntent.FLAG_CANCEL_CURRENT);
+                                    AlarmManager am = (AlarmManager)getSystemService(ALARM_SERVICE);
+                                    am.cancel(pend);
+                                    
+                                    long timeComplete = skill.optLong("time_complete") * 1000;
+                                    
+                                    // Use for debugging notifications only
+                                    // timeComplete = System.currentTimeMillis() + 2000;
+                                    
+                                    Date d = new Date(timeComplete);
+                                    Log.i("GlitchSkills", "Scheduled notification at "+d.toLocaleString());
+                                    
+                                    am.set(AlarmManager.RTC_WAKEUP, timeComplete, pend);
+                                } 
                             }
 
                             @Override
@@ -228,13 +280,13 @@ public class LearningWidget extends AppWidgetProvider
 
                                         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.GINGERBREAD)
                                         {
-                                            updateViews.setViewVisibility(R.id.skill_progress, View.GONE);
-                                            updateViews.setViewVisibility(R.id.skill_time_to_learn, View.GONE);
-                                            updateViews.setViewVisibility(R.id.skill_time_to_learn_label, View.GONE);
+                                            updateViews.setViewVisibility(R.id.skill_progress, View.INVISIBLE);
+                                            updateViews.setViewVisibility(R.id.skill_time_to_learn, View.INVISIBLE);
+                                            updateViews.setViewVisibility(R.id.skill_time_to_learn_label, View.INVISIBLE);
                                         }
 
                                         updateViews.setTextViewText(R.id.skill_title, response.optString("player_name"));
-                                        updateViews.setTextViewText(R.id.skill_description, "(n) A lazy glitch who is not currently learning anything.");
+                                        updateViews.setTextViewText(R.id.skill_description, getString(R.string.widget_not_learning));
 
                                         LoadIconAsyncTask iconTask = new LoadIconAsyncTask(context, updateViews);
                                         iconTask.execute(response.optString("avatar_url"));
@@ -319,9 +371,9 @@ public class LearningWidget extends AppWidgetProvider
             {
                 if (Build.VERSION.SDK_INT > Build.VERSION_CODES.GINGERBREAD)
                 {
-                    updateViews.setViewVisibility(R.id.skill_progress, View.GONE);
-                    updateViews.setViewVisibility(R.id.skill_time_to_learn, View.GONE);
-                    updateViews.setViewVisibility(R.id.skill_time_to_learn_label, View.GONE);
+                    updateViews.setViewVisibility(R.id.skill_progress, View.INVISIBLE);
+                    updateViews.setViewVisibility(R.id.skill_time_to_learn, View.INVISIBLE);
+                    updateViews.setViewVisibility(R.id.skill_time_to_learn_label, View.INVISIBLE);
                 }
             }
         }

@@ -4,33 +4,70 @@
     android:layout_height="match_parent"
     android:orientation="vertical" >
 
-    <org.nsdev.glitchskills.LoaderImageView
-        android:src="@drawable/icon" android:id="@+id/skill_icon"
+    <com.github.droidfu.widgets.WebImageView
+        android:id="@+id/skill_icon"
+        android:layout_width="75dp"
+        android:layout_height="75dp"
+        android:layout_alignParentLeft="true"
         android:layout_alignParentTop="true"
-        android:layout_alignParentLeft="true" android:padding="3dp"
-        android:layout_height="75dp" android:layout_width="75dp" />
-    <TextView android:text="This is where the skill description will be."
-        android:id="@+id/skill_description" android:layout_width="wrap_content"
-        android:layout_height="wrap_content" android:layout_below="@+id/skill_title"
-        android:layout_alignLeft="@+id/skill_title" android:textSize="8pt"
-        android:paddingBottom="3dp"></TextView>
-    <ProgressBar style="?android:attr/progressBarStyleHorizontal"
-        android:layout_height="wrap_content" android:layout_below="@+id/skill_description"
-        android:layout_alignLeft="@+id/skill_description" android:id="@+id/skill_progress"
-        android:padding="3dp" android:layout_width="match_parent"></ProgressBar>
-    <TextView android:textAppearance="?android:attr/textAppearanceSmall"
-        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:padding="3dp"
+        android:src="@drawable/icon" />
+
+    <TextView
+        android:id="@+id/skill_description"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/skill_title"
+        android:layout_below="@+id/skill_title"
+        android:paddingBottom="3dp"
+        android:text="@string/skills_list_item_description"
+        android:textSize="8pt" >
+    </TextView>
+
+    <ProgressBar
+        android:id="@+id/skill_progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/skill_description"
+        android:layout_below="@+id/skill_description"
+        android:padding="3dp" >
+    </ProgressBar>
+
+    <TextView
+        android:id="@+id/skill_time_to_learn_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/skill_progress"
         android:layout_below="@+id/skill_progress"
-        android:layout_alignLeft="@+id/skill_progress" android:id="@+id/skill_time_to_learn_label"
-        android:text="Done in:" android:layout_marginBottom="5dp"></TextView>
-    <TextView android:textAppearance="?android:attr/textAppearanceSmall"
-        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginBottom="5dp"
+        android:text="@string/skill_time_to_learn_label_text"
+        android:textAppearance="?android:attr/textAppearanceSmall" >
+    </TextView>
+
+    <TextView
         android:id="@+id/skill_time_to_learn"
-        android:layout_marginLeft="5dp" android:layout_toRightOf="@+id/skill_time_to_learn_label"
-        android:layout_marginBottom="5dp" android:text="1 day 15 hours 3 minutes 1 second" android:layout_alignTop="@+id/skill_time_to_learn_label" android:maxLines="3" android:minLines="1"></TextView>
-    <TextView android:textSize="10pt" android:text="Skill Title"
-        android:textStyle="bold" android:id="@+id/skill_title"
-        android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:layout_alignParentTop="true" android:layout_toRightOf="@+id/skill_icon"></TextView>
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignTop="@+id/skill_time_to_learn_label"
+        android:layout_marginBottom="5dp"
+        android:layout_marginLeft="5dp"
+        android:layout_toRightOf="@+id/skill_time_to_learn_label"
+        android:maxLines="3"
+        android:minLines="1"
+        android:text="@string/skill_time_to_learn_text"
+        android:textAppearance="?android:attr/textAppearanceSmall" >
+    </TextView>
+
+    <TextView
+        android:id="@+id/skill_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_toRightOf="@+id/skill_icon"
+        android:text="@string/skill_title_text"
+        android:textSize="10pt"
+        android:textStyle="bold" >
+    </TextView>
 
 </RelativeLayout>

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2011 The Android Open Source Project
+<!--
+     Copyright (C) 2011 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -11,10 +12,11 @@
      distributed under the License is distributed on an "AS IS" BASIS,
      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
      See the License for the specific language governing permissions and
-     limitations under the License.
+     limitations under the License.
 -->
 
 <resources>
+
     <string name="action_label_refresh">Refresh</string>
     <string name="action_label_search">Search</string>
     <string name="action_label_both">Both</string>
@@ -25,10 +27,24 @@
     <string name="action_label_nav_tabs">Tabs</string>
     <string name="action_label_nav_drop_down">List</string>
     <string name="action_label_nav_label">Label</string>
-    <string name="action_label_nav">Navigation Mode &gt;</string>
-    <string name="action_label_bak">Action Bar Background &gt;</string>
+    <string name="action_label_nav">Navigation Mode ></string>
+    <string name="action_label_bak">Action Bar Background ></string>
     <string name="action_label_bak_none">None</string>
     <string name="action_label_bak_gradient">Gradient</string>
     <string name="action_label_bak_image">Image</string>
     <string name="widget_name">Glitch Skills</string>
+    <string name="widget_icon_content_description">This is an icon representing the skill you are trying to learn.</string>
+    <string name="widget_skill_description_text">Contacting Glitch server\u2026</string>
+    <string name="widget_not_learning">You\'re wasting time not learning something! Click on your Glitch and choose something new to learn.</string>
+    <string name="widget_skill_title_text">Glitch Skills</string>
+    <string name="widget_skill_time_to_learn_label_text">ETA:</string>
+    <string name="skills_list_item_description">This is where the skill description will be.</string>
+    <string name="skill_time_to_learn_label_text">Done in:</string>
+    <string name="skill_time_to_learn_text">1 day 15 hours 3 minutes 1 second</string>
+    <string name="skill_title_text">Skill Title</string>
+    <string name="widget_skill_s_finished_learning">Skill \'%s\' finished learning.</string>
+    <string name="widget_unknown_glitch">I haven\'t got the foggiest idea who you are, so click the icon and enlighten me.</string>
+    <string name="learn">Learn</string>
+    <string name="unlearn">Unlearn</string>
+    <string name="queue">Queue</string>
 </resources>

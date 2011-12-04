@@ -96,7 +96,7 @@ public class LoaderImageView extends LinearLayout {
         mDrawable = null;
         mSpinner.setVisibility(View.VISIBLE);
         mImage.setVisibility(View.GONE);
-        new Thread(){
+        new Thread() {
             @Override
             public void run() {
                 try {

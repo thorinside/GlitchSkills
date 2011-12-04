@@ -1,10 +1,17 @@
 package org.nsdev.glitchskills;
 
+import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.nsdev.glitchskills.LearningWidget.UpdateService;
+import org.nsdev.glitchskills.SkillsAdapter.SkillsCategory;
+import org.nsdev.glitchskills.db.DatabaseHelper;
+import org.nsdev.glitchskills.db.QueuedSkill;
 import android.app.AlertDialog;
 import android.app.AlertDialog.Builder;
 import android.app.Dialog;
@@ -20,17 +27,26 @@ import android.os.Handler;
 import android.support.v4.app.ActionBar;
 import android.support.v4.app.ActionBar.Tab;
 import android.support.v4.app.ActionBar.TabListener;
+import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
+import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v4.app.ListFragment;
-import android.support.v4.view.ActionMode;
-import android.support.v4.view.ActionMode.Callback;
 import android.support.v4.view.Menu;
 import android.support.v4.view.MenuItem;
+import android.support.v4.view.PagerAdapter;
+import android.support.v4.view.ViewPager;
+import android.support.v4.view.ViewPager.OnPageChangeListener;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ListView;
 import android.widget.Toast;
+import com.github.droidfu.cachefu.ImageCache;
+import com.github.droidfu.imageloader.ImageLoader;
+import com.j256.ormlite.android.apptools.OpenHelperManager;
+import com.j256.ormlite.dao.Dao;
 import com.tinyspeck.android.Glitch;
 import com.tinyspeck.android.GlitchRequest;
 import com.tinyspeck.android.GlitchRequestDelegate;
@@ -38,6 +54,8 @@ import com.tinyspeck.android.GlitchSessionDelegate;
 
 public class GlitchSkillsActivity extends FragmentActivity implements GlitchSessionDelegate, GlitchRequestDelegate, TabListener
 {
+    static final String TAG = "GlitchSkills";
+
     static final boolean IS_HONEYCOMB = Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB;
 
     private static final String AUTH_CHECK = "auth.check";
@@ -45,33 +63,42 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
     private static final String SKILLS_LIST_AVAILABLE = "skills.listAvailable";
     private static final String SKILLS_LIST_LEARNED = "skills.listLearned";
     private static final String SKILLS_LIST_LEARNING = "skills.listLearning";
+    private static final String SKILLS_LIST_UNLEARNING = "skills.listUnlearning";
+    private static final String SKILLS_LIST_UNLEARNABLE= "skills.listUnlearnable";
     private static final String SKILLS_LEARN = "skills.learn";
+    private static final String SKILLS_UNLEARN = "skills.unlearn";
+    
+    private final int REQUEST_LEARN = 1;
+    private final int REQUEST_UNLEARN = 2;
 
     static final int DIALOG_LOGIN_FAIL_ID = 0;
     static final int DIALOG_REQUEST_FAIL_ID = 1;
 
+    private final boolean DEBUG = true;
+
     private Glitch glitch;
-
     Handler handler = new Handler();
-
-    private ListFragment learningFragment;
-
-    private ClickableListFragment availableFragment;
-
-    private ListFragment learnedFragment;
+    private ListFragment studyingFragment;
+    private ClickableListFragment learnableFragment;
+    private ClickableListFragment unlearnableFragment;
+    private DatabaseHelper databaseHelper;
     
-    private Runnable learningTimeUpdateHandler = new Runnable() {
+    private AtomicInteger updatingLearnableFragment = new AtomicInteger();
+    private AtomicInteger updatingUnlearnableFragment = new AtomicInteger();;
+    private AtomicInteger updatingStudyingFragment = new AtomicInteger();;
+
+    private Runnable learningTimeUpdateHandler = new Runnable()
+    {
         @Override
         public void run()
         {
             try
             {
-                learningFragment.getListView().invalidateViews();
+                studyingFragment.getListView().invalidateViews();
                 handler.postDelayed(learningTimeUpdateHandler, 1000);
-            } 
+            }
             catch (Throwable ex)
             {
-                
             }
         }
     };
@@ -80,6 +107,9 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
     public void onCreate(Bundle savedInstanceState)
     {
         setContentView(R.layout.main);
+
+        ImageLoader.initialize(getApplicationContext());
+        ImageLoader.getImageCache().enableDiskCache(getApplicationContext(), ImageCache.DISK_CACHE_INTERNAL);
 
         final ActionBar ab = getSupportActionBar();
 
@@ -97,19 +127,84 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
             ab.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
         }
 
-        learningFragment = new ListFragment();
-        availableFragment = new ClickableListFragment(this);
-        learnedFragment = new ListFragment();
+        studyingFragment = new ListFragment();
+        learnableFragment = new ClickableListFragment(this, REQUEST_LEARN);
+        unlearnableFragment = new ClickableListFragment(this, REQUEST_UNLEARN);
+
+        final FragmentPagerAdapter adapter = new FragmentPagerAdapter(getSupportFragmentManager())
+        {
+
+            @Override
+            public Fragment getItem(int position)
+            {
+                if (DEBUG)
+                    Log.d(TAG, "Asked for position " + position);
+                switch (position)
+                {
+                    case 0:
+                        return studyingFragment;
+                    case 1:
+                        return learnableFragment;
+                    case 2:
+                        return unlearnableFragment;
+                    default:
+                        return null;
+                }
+            }
+
+            @Override
+            public int getCount()
+            {
+                return 3;
+            }
+
+        };
+
+        fragmentPager = new ViewPager(GlitchSkillsActivity.this);
+        fragmentPager.setAdapter(adapter);
+        fragmentPager.setId(999);
+
+        fragmentPager.setOnPageChangeListener(new OnPageChangeListener()
+        {
+
+            @Override
+            public void onPageSelected(int position)
+            {
+                ab.setSelectedNavigationItem(position);
+            }
+
+            @Override
+            public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels)
+            {
+            }
+
+            @Override
+            public void onPageScrollStateChanged(int state)
+            {
+            }
+        });
+
+        Fragment rootFragment = new Fragment()
+        {
+
+            @Override
+            public View onCreateView(LayoutInflater inflater, ViewGroup container, @SuppressWarnings("hiding") Bundle savedInstanceState)
+            {
+                return fragmentPager;
+            }
+
+        };
 
         FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
-        ft.add(R.id.root, learningFragment);
-        ft.add(R.id.root, availableFragment);
-        ft.add(R.id.root, learnedFragment);
+        ft.add(R.id.root, rootFragment);
+        ft.add(fragmentPager.getId(), studyingFragment);
+        ft.add(fragmentPager.getId(), learnableFragment);
+        ft.add(fragmentPager.getId(), unlearnableFragment);
         ft.commit();
 
-        ab.addTab(ab.newTab().setText("Learning").setTabListener(this));
-        ab.addTab(ab.newTab().setText("Available").setTabListener(this));
-        ab.addTab(ab.newTab().setText("Learned").setTabListener(this));
+        ab.addTab(ab.newTab().setText("Studying").setTabListener(this));
+        ab.addTab(ab.newTab().setText("Learn").setTabListener(this));
+        ab.addTab(ab.newTab().setText("Unlearn").setTabListener(this));
 
         glitch = new Glitch("145-51ad5d3a7e58913e63707fc1cfdde3bda2ff39f3", "nosuchglitch://auth");
         Intent intent = getIntent();
@@ -138,7 +233,7 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
         }
 
     }
-    
+
     @Override
     protected void onNewIntent(Intent intent)
     {
@@ -146,7 +241,7 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
         handleIntent(intent);
     }
 
-    public void onListItemClick(ListView l, View v, int position, long id)
+    public void onListItemClick(ListView l, @SuppressWarnings("unused") View v, int position, long id)
     {
         if (l.getAdapter() instanceof SkillsAdapter)
         {
@@ -156,34 +251,63 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
 
                 if (skill != null)
                 {
-                    final String title = String.format("Learn %s?", skill.getString("name"));
+                    final String title = String.format("%s", skill.getString("name"));
 
                     if (IS_HONEYCOMB)
                     {
-                        startActionMode(new LearnSkillActionMode(title, skill));
+                        if (id == REQUEST_LEARN)
+                            startActionMode(new LearnSkillActionMode(this, title, skill));
+                        else if (id == REQUEST_UNLEARN)
+                            startActionMode(new UnlearnSkillActionMode(this, title, skill));
                     }
                     else
                     {
-                        // Show a confirmation dialog
-                        Builder confirmationDialogBuilder = new AlertDialog.Builder(GlitchSkillsActivity.this);
-                        confirmationDialogBuilder.setMessage(title);
-                        confirmationDialogBuilder.setCancelable(false);
-                        confirmationDialogBuilder.setNegativeButton(android.R.string.no, null);
-                        confirmationDialogBuilder.setPositiveButton(android.R.string.yes, new OnClickListener()
+                        if (id == REQUEST_LEARN)
                         {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which)
+                            // Show a confirmation dialog
+                            Builder confirmationDialogBuilder = new AlertDialog.Builder(GlitchSkillsActivity.this);
+                            confirmationDialogBuilder.setMessage(title);
+                            confirmationDialogBuilder.setCancelable(true);
+                            confirmationDialogBuilder.setNegativeButton(R.string.queue, new OnClickListener()
                             {
-                                learnSkill(skill);
-                            }
-                        });
-                        confirmationDialogBuilder.create().show();
+                                @Override
+                                public void onClick(DialogInterface dialog, int which)
+                                {
+                                    queueSkill(skill);
+                                }
+                            });
+                            confirmationDialogBuilder.setPositiveButton(R.string.learn, new OnClickListener()
+                            {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which)
+                                {
+                                    learnSkill(skill);
+                                }
+                            });
+                            confirmationDialogBuilder.create().show();
+                        }
+                        else if (id == REQUEST_UNLEARN)
+                        {
+                            // Show a confirmation dialog
+                            Builder confirmationDialogBuilder = new AlertDialog.Builder(GlitchSkillsActivity.this);
+                            confirmationDialogBuilder.setMessage(title);
+                            confirmationDialogBuilder.setCancelable(true);
+                            confirmationDialogBuilder.setNegativeButton(android.R.string.cancel, null);
+                            confirmationDialogBuilder.setPositiveButton(R.string.unlearn, new OnClickListener()
+                            {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which)
+                                {
+                                    unlearnSkill(skill);
+                                }
+                            });
+                            confirmationDialogBuilder.create().show();
+                        }
                     }
                 }
             }
             catch (JSONException e)
             {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             }
         }
@@ -205,7 +329,8 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
     @Override
     public void glitchLoggedOut()
     {
-        Log.e("GSA", "Not logged in.");
+        if (DEBUG)
+            Log.e(TAG, "Not logged in.");
         showDialog(DIALOG_LOGIN_FAIL_ID);
     }
 
@@ -233,6 +358,11 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
             {
                 Toast.makeText(getApplicationContext(), "Invalid Token", Toast.LENGTH_LONG).show();
             }
+            else if (method.equals(SKILLS_UNLEARN))
+            {
+                Toast.makeText(getApplicationContext(), error, Toast.LENGTH_LONG).show();
+                return;
+            }
 
             if (clearAuthorizationToken())
             {
@@ -245,83 +375,88 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
 
         if (method.equals(AUTH_CHECK))
         {
-            performRefresh();
+            performRefresh(getSupportActionBar().getSelectedNavigationIndex());
         }
         else if (method.equals(PLAYERS_INFO))
         {
-
             String playerName = response.optString("player_name");
             Toast.makeText(getApplicationContext(), String.format("Hello %s", playerName), Toast.LENGTH_LONG).show();
-            
-        }
-        else if (method.equals(SKILLS_LIST_LEARNED))
-        {
-
-            try
-            {
-                learnedFragment.setListShown(true);
-                learnedFragment.setEmptyText("You must be new here, you haven't learned anything yet. Noob!");
-                if (response.has("skills") && !response.isNull("skills"))
-                {
-                    JSONObject skills = response.getJSONObject("skills");
-                    learnedFragment.setListAdapter(new SkillsAdapter(this, skills));
-                }
-                else
-                {
-                    availableFragment.setListAdapter(new SkillsAdapter(this));
-                }
-            }
-            catch (JSONException e)
-            {
-            }
-
         }
         else if (method.equals(SKILLS_LIST_AVAILABLE))
         {
-
-            try
-            {
-                availableFragment.setListShown(true);
-                availableFragment.setEmptyText("You seem to have learned all there is to know. Show off!");
-                if (response.has("skills") && !response.isNull("skills"))
-                {
-                    JSONObject skills = response.getJSONObject("skills");
-                    availableFragment.setListAdapter(new SkillsAdapter(this, skills));
-                }
-                else
-                {
-                    availableFragment.setListAdapter(new SkillsAdapter(this));
-                }
-            }
-            catch (JSONException e)
-            {
-            }
-
+            updateListFragment(learnableFragment, "skills", "You seem to have learned all there is to know. Show off!", response, null, 0);
+            updatingLearnableFragment.decrementAndGet();
         }
         else if (method.equals(SKILLS_LIST_LEARNING))
         {
-
-            try
+            updateListFragment(studyingFragment, "learning", "You're not learning or unlearning anything. An idle magic rock is not a happy magic rock.", response, "Learning", 0);
+            updatingStudyingFragment.decrementAndGet();
+        }
+        else if (method.equals(SKILLS_LIST_UNLEARNING))
+        {
+            updateListFragment(studyingFragment, "unlearning", "You're not learning or unlearning anything. An idle magic rock is not a happy magic rock.", response, "Unlearning", 1);
+            updatingStudyingFragment.decrementAndGet();
+        }
+        else if (method.equals(SKILLS_LIST_UNLEARNABLE))
+        {
+            updateListFragment(unlearnableFragment, "skills", "There's absolutely nothing to unlearn when you don't know anything in the first place! Or, perhaps you need to learn to unlearn?", response, null, 0);
+            updatingUnlearnableFragment.decrementAndGet();
+        }
+        else if (method.equals(SKILLS_LEARN))
+        {
+            handler.post(new Runnable()
             {
-                learningFragment.setListShown(true);
-                learningFragment.setEmptyText("You should be learning something instead of just sitting around!");
-                if (response.has("learning") && !response.isNull("learning"))
+                @Override
+                public void run()
                 {
-                    JSONObject skills = response.getJSONObject("learning");
-                    learningFragment.setListAdapter(new SkillsAdapter(this, skills));
+                    performRefresh(1);
+                    studyingFragment.setListAdapter(null);
+                    updateAppWidget();
                 }
-                else
+            });
+        }
+        else if (method.equals(SKILLS_UNLEARN))
+        {
+            handler.post(new Runnable()
+            {
+                @Override
+                public void run()
                 {
-                    learningFragment.setListAdapter(new SkillsAdapter(this));
+                    performRefresh(2);
+                    studyingFragment.setListAdapter(null);
+                }
+            });
+        }
+    }
+
+    private void updateListFragment(ListFragment listFragment, String listName, String emptyListMessage, JSONObject response, String title, int order)
+    {
+        try
+        {
+            synchronized(listFragment)
+            {
+                if (listFragment.getListAdapter() == null)
+                {
+                    listFragment.setListAdapter(new SkillsAdapter(this));
                 }
                 
-                updateAppWidget();
-
+                SkillsAdapter adapter = (SkillsAdapter)listFragment.getListAdapter();
+                
+                listFragment.setListShown(true);
+                listFragment.setEmptyText(emptyListMessage);
+                if (response.has(listName) && !response.isNull(listName))
+                {
+                    JSONObject skills = response.getJSONObject(listName);
+                    SkillsCategory category = new SkillsCategory(skills, title != null, title, order);
+                    adapter.addSkillsCategory(category);
+                }
             }
-            catch (JSONException e)
-            {
-            }
-
+        }
+        catch (JSONException e)
+        {
+        }
+        catch (IllegalStateException e)
+        {
         }
     }
 
@@ -340,6 +475,26 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
     @Override
     public void requestFailed(GlitchRequest request)
     {
+        // Need to ensure these get decremented, otherwise
+        // we may never be able to get the values if the network goes
+        // down.
+        if (request.method.equals(SKILLS_LIST_AVAILABLE))
+        {
+            updatingLearnableFragment.decrementAndGet();
+        }
+        else if (request.method.equals(SKILLS_LIST_LEARNING))
+        {
+            updatingStudyingFragment.decrementAndGet();
+        }
+        else if (request.method.equals(SKILLS_LIST_UNLEARNING))
+        {
+            updatingStudyingFragment.decrementAndGet();
+        }
+        else if (request.method.equals(SKILLS_LIST_UNLEARNABLE))
+        {
+            updatingUnlearnableFragment.decrementAndGet();
+        }
+        
         showDialog(DIALOG_REQUEST_FAIL_ID);
     }
 
@@ -356,7 +511,7 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
                 builder.setMessage("Login failure!").setCancelable(false).setPositiveButton("Darn", new DialogInterface.OnClickListener()
                 {
                     @Override
-                    public void onClick(DialogInterface dialog, int id)
+                    public void onClick(@SuppressWarnings("hiding") DialogInterface dialog, @SuppressWarnings("hiding") int id)
                     {
                         dialog.cancel();
                     }
@@ -371,7 +526,7 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
                 builder1.setMessage("Request failure!").setCancelable(false).setPositiveButton("Argh!", new DialogInterface.OnClickListener()
                 {
                     @Override
-                    public void onClick(DialogInterface dialog, int id)
+                    public void onClick(@SuppressWarnings("hiding") DialogInterface dialog, @SuppressWarnings("hiding") int id)
                     {
                         dialog.cancel();
                     }
@@ -389,79 +544,37 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
     @Override
     public void onTabReselected(Tab tab, FragmentTransaction ft)
     {
-        performRefresh();
     }
 
-    String lastTab = null;
+    private ViewPager fragmentPager;
 
     @Override
     public void onTabSelected(Tab tab, FragmentTransaction ft)
     {
-        if (glitch == null) return;
+        if (glitch == null)
+            return;
+
+        if (DEBUG) Log.d(TAG, "onTabSelected");
         
-        if (ft == null)
-            ft = getSupportFragmentManager().beginTransaction();
-
-        boolean isForward = true;
-
-        if (lastTab != null && lastTab.equals("Learned"))
-        {
-            isForward = false;
-        }
-        else if (lastTab != null && (lastTab.equals("Available") && tab.getText().equals("Learning")))
-        {
-            isForward = false;
-        }
-
-        if (!isForward)
-        {
-            ft.setCustomAnimations(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
-        }
-        else
-        {
-            ft.setCustomAnimations(R.anim.slide_in_right, R.anim.slide_out_left);
-        }
-
-        if (tab.getText().equals("Learning"))
-        {
-            handler.postDelayed(learningTimeUpdateHandler, 1000);
-            glitch.getRequest(SKILLS_LIST_LEARNING).execute(this);
-            ft.show(learningFragment);
-            ft.hide(availableFragment);
-            ft.hide(learnedFragment);
-        }
-        else if (tab.getText().equals("Learned"))
-        {
-            handler.removeCallbacks(learningTimeUpdateHandler);
-            glitch.getRequest(SKILLS_LIST_LEARNED).execute(this);
-            ft.hide(learningFragment);
-            ft.hide(availableFragment);
-            ft.show(learnedFragment);
-        }
-        else if (tab.getText().equals("Available"))
-        {
-            handler.removeCallbacks(learningTimeUpdateHandler);
-            glitch.getRequest(SKILLS_LIST_AVAILABLE).execute(this);
-            ft.hide(learningFragment);
-            ft.show(availableFragment);
-            ft.hide(learnedFragment);
-        }
-
-        ft.commit();
+        fragmentPager.setCurrentItem(tab.getPosition(), true);
+        if (isAdapterNull(tab.getPosition()))
+            performRefresh(tab.getPosition());
+        
+        if (tab.getPosition() == 0)
+            handler.postDelayed(learningTimeUpdateHandler, 0);
     }
 
     @Override
     public void onTabUnselected(Tab tab, FragmentTransaction ft)
     {
-        lastTab = tab.getText().toString();
+        if (tab.getPosition() == 0)
+            handler.removeCallbacks(learningTimeUpdateHandler);
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu)
     {
         getMenuInflater().inflate(R.menu.main_menu, menu);
-
-        // set up a listener for the refresh item
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -481,7 +594,7 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
 
             case R.id.menu_item_refresh:
             {
-                performRefresh();
+                performRefresh(getSupportActionBar().getSelectedNavigationIndex());
                 return true;
             }
         }
@@ -489,24 +602,74 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
         return super.onOptionsItemSelected(item);
     }
 
-    public void performRefresh()
+    public synchronized void performRefresh(int position)
     {
-        String tabName = getSupportActionBar().getSelectedTab().getText().toString();
-
-        if (tabName.equals("Learning"))
+        if (position == 0 && updatingStudyingFragment.get() == 0)
         {
-            handler.postDelayed(learningTimeUpdateHandler, 1000);
+            if (DEBUG) Log.d(TAG, "Updating Studying Fragment");
+            updatingStudyingFragment.set(2);
+            
+            resetAdapter(studyingFragment);
             glitch.getRequest(SKILLS_LIST_LEARNING).execute(this);
+            glitch.getRequest(SKILLS_LIST_UNLEARNING).execute(this);
         }
-        else if (tabName.equals("Learned"))
+        else if (position == 1 && updatingLearnableFragment.get() == 0)
         {
-            handler.removeCallbacks(learningTimeUpdateHandler);
-            glitch.getRequest(SKILLS_LIST_LEARNED).execute(this);
-        }
-        else if (tabName.equals("Available"))
-        {
-            handler.removeCallbacks(learningTimeUpdateHandler);
+            if (DEBUG) Log.d(TAG, "Updating Learnable Fragment");
+            updatingLearnableFragment.set(1);
+            
+            resetAdapter(learnableFragment);
             glitch.getRequest(SKILLS_LIST_AVAILABLE).execute(this);
+        }
+        else if (position == 2 && updatingUnlearnableFragment.get() == 0)
+        {
+            if (DEBUG) Log.d(TAG, "Updating Unlearnable Fragment");
+            updatingUnlearnableFragment.set(1);
+            
+            resetAdapter(unlearnableFragment);
+            glitch.getRequest(SKILLS_LIST_UNLEARNABLE).execute(this);
+        }
+    }
+    
+    private boolean isAdapterNull(int position)
+    {
+        switch(position)
+        {
+            case 0:
+                return studyingFragment.getListAdapter() == null;
+            case 1:
+                return learnableFragment.getListAdapter() == null;
+            case 2:
+                return unlearnableFragment.getListAdapter() == null;
+        }
+        
+        return false;
+    }
+
+    private void resetAdapter(ListFragment listFragment)
+    {
+        SkillsAdapter adapter = (SkillsAdapter)listFragment.getListAdapter();
+        if (adapter != null)
+        {
+            adapter.reset(false);
+            try
+            {
+                listFragment.setListShown(false);
+            } catch (IllegalStateException ex) {
+            }
+        }
+    }
+
+    public void unlearnSkill(JSONObject skill)
+    {
+        String tsid = skill.optString("class_tsid");
+
+        if (tsid != null)
+        {
+            Map<String, String> params = new HashMap<String, String>();
+            params.put("skill_class", tsid);
+            GlitchRequest req = glitch.getRequest(SKILLS_UNLEARN, params);
+            req.execute(GlitchSkillsActivity.this);
         }
     }
 
@@ -520,20 +683,46 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
             params.put("skill_class", tsid);
             GlitchRequest req = glitch.getRequest(SKILLS_LEARN, params);
             req.execute(GlitchSkillsActivity.this);
-
-            handler.postDelayed(new Runnable()
-            {
-
-                @Override
-                public void run()
-                {
-                    glitch.getRequest(SKILLS_LIST_LEARNING).execute(GlitchSkillsActivity.this);
-                    glitch.getRequest(SKILLS_LIST_AVAILABLE).execute(GlitchSkillsActivity.this);
-
-                    updateAppWidget();
-                }
-            }, 250);
         }
+    }
+
+    public void queueSkill(JSONObject skill)
+    {
+        if (DEBUG)
+            Log.i(TAG, "Queueing skill.");
+
+        String skillId = skill.optString("class_tsid");
+
+        try
+        {
+            Dao<QueuedSkill, Integer> dao = getHelper().getQueuedSkillDao();
+            List<QueuedSkill> queuedSkills = dao.queryForAll();
+
+            boolean alreadyLearning = false;
+
+            for (QueuedSkill q: queuedSkills)
+            {
+                if (q.getId().equals(skillId))
+                {
+                    alreadyLearning = true;
+                }
+            }
+
+            if (alreadyLearning)
+            {
+                Toast.makeText(getApplicationContext(), "You've already queued that skill, silly.", Toast.LENGTH_SHORT).show();
+            }
+            else
+            {
+                QueuedSkill queuedSkill = new QueuedSkill(skillId, queuedSkills.size());
+                dao.create(queuedSkill);
+            }
+        }
+        catch (SQLException e)
+        {
+            e.printStackTrace();
+        }
+
     }
 
     public void updateAppWidget()
@@ -543,48 +732,41 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
         startService(intent);
     }
 
-    private class LearnSkillActionMode implements Callback
+    private DatabaseHelper getHelper()
     {
-
-        private final String title;
-        private final JSONObject skill;
-
-        private LearnSkillActionMode(String title, JSONObject skill)
+        if (databaseHelper == null)
         {
-            this.title = title;
-            this.skill = skill;
+            databaseHelper = OpenHelperManager.getHelper(this, DatabaseHelper.class);
         }
+        return databaseHelper;
+    }
+    
+    @Override
+    protected void onPause()
+    {
+        super.onPause();
+        handler.removeCallbacks(learningTimeUpdateHandler);
+    }
 
-        @Override
-        public boolean onActionItemClicked(ActionMode mode, MenuItem item)
+    @Override
+    protected void onResume()
+    {
+        super.onResume();
+        if (getSupportActionBar().getSelectedTab().getPosition() == 0)
+            handler.postDelayed(learningTimeUpdateHandler, 0);
+    }
+
+    @Override
+    protected void onDestroy()
+    {
+        super.onDestroy();
+
+        handler.removeCallbacks(learningTimeUpdateHandler);
+
+        if (databaseHelper != null)
         {
-            if (item.getItemId() == R.id.yes)
-            {
-                learnSkill(skill);
-            }
-            mode.finish();
-            return true;
-        }
-
-        @Override
-        public boolean onCreateActionMode(ActionMode mode, Menu menu)
-        {
-
-            mode.setTitle(title);
-            getMenuInflater().inflate(R.menu.learn_menu, menu);
-
-            return true;
-        }
-
-        @Override
-        public void onDestroyActionMode(ActionMode mode)
-        {
-        }
-
-        @Override
-        public boolean onPrepareActionMode(ActionMode mode, Menu menu)
-        {
-            return false;
+            OpenHelperManager.releaseHelper();
+            databaseHelper = null;
         }
     }
 

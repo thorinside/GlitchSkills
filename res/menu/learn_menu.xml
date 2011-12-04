@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu
-  xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:title="Yes" android:id="@+id/yes"></item>
-    <item android:title="No" android:id="@+id/no"></item>
-    
+<menu xmlns:android="http://schemas.android.com/apk/res/android" >
+
+    <item
+        android:id="@+id/learn"
+        android:title="@string/learn">
+    </item>
+    <item
+        android:id="@+id/queue"
+        android:title="@string/queue">
+    </item>
+
 </menu>

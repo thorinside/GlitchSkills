@@ -1,10 +1,12 @@
 package org.nsdev.glitchskills;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,167 +14,331 @@ import android.widget.BaseAdapter;
 import android.widget.ListAdapter;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import com.github.droidfu.widgets.WebImageView;
 
-public class SkillsAdapter extends BaseAdapter implements ListAdapter
+public class SkillsAdapter extends BaseAdapter
 {
 
     private static final int SECONDS_PER_DAY = 60 * 60 * 24;
     private static final int SECONDS_PER_HOUR = 60 * 60;
     private static final int SECONDS_PER_MINUTE = 60;
 
-    JSONArray jsonArray;
-    JSONObject obj;
     Context context;
+    
+    private static class NameIndexEntry 
+    {
+        private String name;
+        private int originalIndex;
+        
+        public NameIndexEntry(String name, int originalIndex)
+        {
+            super();
+            setName(name);
+            setOriginalIndex(originalIndex);
+        }
+
+        public void setName(String name)
+        {
+            this.name = name;
+        }
+        
+        public String getName()
+        {
+            return name;
+        }
+        
+        public void setOriginalIndex(int originalIndex)
+        {
+            this.originalIndex = originalIndex;
+        }
+        
+        public int getOriginalIndex()
+        {
+            return originalIndex;
+        }
+    }
 
     LayoutInflater vi;
-
-    public SkillsAdapter(Context context, JSONObject obj)
-    {
-        super();
-        this.jsonArray = obj.names();
-        this.obj = obj;
-        this.context = context;
-        vi = (LayoutInflater)context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+    
+    public static class SkillsListEntry {
+        int entryType = -1;
+        SkillsCategory category;
+        int categoryIndex;
+        String entryText;
     }
+    
+    public static class SkillsCategory implements Comparable<SkillsCategory> {
+        final boolean isTitleVisible;
+        final String title;
+        final JSONObject obj;
+        final JSONArray jsonArray;
+        final private ArrayList<NameIndexEntry> nameIndex = new ArrayList<NameIndexEntry>();
+        final int order;
+        
+        public SkillsCategory(JSONObject obj, boolean isTitleVisible, String title, int order)
+        {
+            this.order = order;
+            this.jsonArray = obj.names();
+            this.obj = obj;
+            this.title = title;
+            this.isTitleVisible = isTitleVisible;
+            
+            if (jsonArray != null)
+            {
+                for (int i = 0; i < jsonArray.length(); i++)
+                {
+                    try
+                    {
+                        String name = (String)jsonArray.get(i);
+                        nameIndex.add(new NameIndexEntry(name, i));
+                    } 
+                    catch (JSONException ex)
+                    {
+                    }
+                }
+            }
+            
+            Collections.sort(nameIndex, new Comparator<NameIndexEntry>()
+            {
+                @Override
+                public int compare(NameIndexEntry a, NameIndexEntry b)
+                {
+                    return a.getName().compareTo(b.getName());
+                }
+            });
+            
+        }
+
+        public int getCount()
+        {
+            if (jsonArray == null)
+                return 0;
+
+            return jsonArray.length();
+        }
+        
+        public JSONObject getSkill(int index) throws JSONException
+        {
+            String name = (String)jsonArray.get(nameIndex.get(index).getOriginalIndex());
+            if (name != null)
+            {
+                return (JSONObject)obj.get(name);
+            }
+            return null;
+        }
+
+        @Override
+        public int compareTo(SkillsCategory another)
+        {
+            if (order < another.order) return -1;
+            if (order > another.order) return 1;
+            return 0;
+        }
+    }
+    
+    private ArrayList<SkillsCategory> skillsCategories = new ArrayList<SkillsCategory>();
+    
+    private ArrayList<SkillsListEntry> entries = new ArrayList<SkillsListEntry>();
 
     public SkillsAdapter(Context context)
     {
+        super();
         this.context = context;
-        this.jsonArray = null;
-        this.obj = null;
+        vi = (LayoutInflater)context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+    }
+    
+    public void reset(boolean notify)
+    {
+        entries.clear();
+        skillsCategories.clear();
+        if (notify) notifyDataSetChanged();
+    }
+    
+    public void addSkillsCategory(SkillsCategory category)
+    {
+        skillsCategories.add(category);
+        Collections.sort(skillsCategories);
+        rebuildEntries();
+        notifyDataSetChanged();
+    }
+    
+    private void rebuildEntries()
+    {
+        entries.clear();
+        
+        for (SkillsCategory category: skillsCategories)
+        {
+            if (category.getCount() > 0)
+            {
+                if (category.isTitleVisible) {
+                    SkillsListEntry entry = new SkillsListEntry();
+                    entry.entryType = 0;
+                    entry.category = category;
+                    entry.entryText = category.title;
+                    entries.add(entry);
+                }
+                for (int i = 0; i < category.getCount(); i++) {
+                    SkillsListEntry entry = new SkillsListEntry();
+                    entry.entryType = 1;
+                    entry.category = category;
+                    entry.categoryIndex = i;
+                    entries.add(entry);
+                }
+            }
+        }
     }
 
     @Override
     public int getCount()
     {
-        if (jsonArray == null)
-            return 0;
-        else
-            return jsonArray.length();
+        return entries.size();
     }
-
+    
     public JSONObject getSkill(int index) throws JSONException
     {
-        String name = (String)getItem(index);
-        if (name != null)
-        {
-            return (JSONObject)obj.get(name);
-        }
-
-        return null;
+        SkillsListEntry entry = (SkillsListEntry)getItem(index);
+        if (entry.entryType == 0) throw new RuntimeException("Not a skill entry!");
+        return entry.category.getSkill(entry.categoryIndex);
     }
-
+    
     @Override
     public Object getItem(int index)
     {
-        try
-        {
-            return jsonArray.get(index);
-        }
-        catch (JSONException e)
-        {
-            e.printStackTrace();
-        }
-        return null;
+        if (entries.isEmpty()) return null;
+        return entries.get(index);
     }
 
     @Override
     public long getItemId(int index)
     {
-        try
-        {
-            return jsonArray.get(index).hashCode();
-        }
-        catch (JSONException e)
-        {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-
-        return 0;
+        return getItem(index).hashCode();
     }
 
     static class ViewHolder
     {
         public TextView title;
         public TextView description;
-        public LoaderImageView icon;
+        public WebImageView icon;
         public ProgressBar progress;
         public TextView timeToLearn;
         public TextView timeToLearnLabel;
-        public Bitmap bitmap;
+    }
+    
+    @Override
+    public boolean areAllItemsEnabled()
+    {
+        return false;
+    }
+
+    @Override
+    public int getItemViewType(int position)
+    {
+        return entries.get(position).entryType;
+    }
+
+    @Override
+    public int getViewTypeCount()
+    {
+        return 2;
+    }
+
+    @Override
+    public boolean isEnabled(int position)
+    {
+        SkillsListEntry entry = (SkillsListEntry)getItem(position);
+        return entry != null && entry.entryType != 0;
     }
 
     @Override
     public View getView(int index, View convertView, ViewGroup parent)
     {
         View v = convertView;
-        if (v == null)
+        SkillsListEntry entry = (SkillsListEntry)getItem(index);
+        
+        if (entry == null) return null;
+        
+        if (entry.entryType == 0)
         {
-            v = vi.inflate(R.layout.skills_list_item, null);
-            ViewHolder holder = new ViewHolder();
-            holder.title = (TextView)v.findViewById(R.id.skill_title);
-            holder.description = (TextView)v.findViewById(R.id.skill_description);
-            holder.icon = (LoaderImageView)v.findViewById(R.id.skill_icon);
-            holder.progress = (ProgressBar)v.findViewById(R.id.skill_progress);
-            holder.timeToLearn = (TextView)v.findViewById(R.id.skill_time_to_learn);
-            holder.timeToLearnLabel = (TextView)v.findViewById(R.id.skill_time_to_learn_label);
-            v.setTag(holder);
-        }
-
-        try
-        {
-            JSONObject o = getSkill(index);
-            ViewHolder holder = (ViewHolder)v.getTag();
-            holder.title.setText(o.getString("name"));
-            holder.description.setText(o.getString("description"));
-            holder.icon.setImageDrawable(o.getString("icon_100"));
-
-            int timeRemaining = o.optInt("time_remaining");
-
-            if (timeRemaining != 0)
+            if (v == null)
             {
-                holder.progress.setVisibility(View.VISIBLE);
-                holder.timeToLearn.setVisibility(View.VISIBLE);
-                holder.timeToLearnLabel.setVisibility(View.VISIBLE);
-
-                long timeStart = o.optLong("time_start");
-                long timeComplete = o.optLong("time_complete");
-
-                int elapsed;
-                int total;
-                int remaining;
-
-                if (timeStart != 0 && timeComplete != 0)
+                v = vi.inflate(R.layout.skills_list_header, null);
+                ViewHolder holder = new ViewHolder();
+                holder.title = (TextView)v.findViewById(R.id.text1);
+                v.setTag(holder);
+            }
+            
+            ViewHolder holder = (ViewHolder)v.getTag();
+            holder.title.setText(entry.entryText);
+        }
+        else
+        {
+            if (v == null)
+            {
+                v = vi.inflate(R.layout.skills_list_item, null);
+                ViewHolder holder = new ViewHolder();
+                holder.title = (TextView)v.findViewById(R.id.skill_title);
+                holder.description = (TextView)v.findViewById(R.id.skill_description);
+                holder.icon = (WebImageView)v.findViewById(R.id.skill_icon);
+                holder.progress = (ProgressBar)v.findViewById(R.id.skill_progress);
+                holder.timeToLearn = (TextView)v.findViewById(R.id.skill_time_to_learn);
+                holder.timeToLearnLabel = (TextView)v.findViewById(R.id.skill_time_to_learn_label);
+                v.setTag(holder);
+            }
+    
+            try
+            {
+                JSONObject o = entry.category.getSkill(entry.categoryIndex);
+                ViewHolder holder = (ViewHolder)v.getTag();
+                holder.title.setText(o.getString("name"));
+                holder.description.setText(o.getString("description"));
+                holder.icon.setImageUrl(o.getString("icon_100"));
+                holder.icon.loadImage();
+    
+                int timeRemaining = o.optInt("time_remaining");
+    
+                if (timeRemaining != 0)
                 {
-                    long currentTime = System.currentTimeMillis() / 1000L;
-
-                    elapsed = (int)(currentTime - timeStart);
-                    total = (int)(timeComplete - timeStart);
-                    remaining = total - elapsed;
+                    holder.progress.setVisibility(View.VISIBLE);
+                    holder.timeToLearn.setVisibility(View.VISIBLE);
+                    holder.timeToLearnLabel.setVisibility(View.VISIBLE);
+    
+                    long timeStart = o.optLong("time_start");
+                    long timeComplete = o.optLong("time_complete");
+    
+                    int elapsed;
+                    int total;
+                    int remaining;
+    
+                    if (timeStart != 0 && timeComplete != 0)
+                    {
+                        long currentTime = System.currentTimeMillis() / 1000L;
+    
+                        elapsed = (int)(currentTime - timeStart);
+                        total = (int)(timeComplete - timeStart);
+                        remaining = total - elapsed;
+                    }
+                    else
+                    {
+                        total = o.getInt("total_time");
+                        elapsed = total - timeRemaining;
+                        remaining = timeRemaining;
+                    }
+    
+                    holder.progress.setMax(total);
+                    holder.progress.setProgress(elapsed);
+                    holder.timeToLearn.setText(formatDuration(remaining, true));
                 }
                 else
                 {
-                    total = o.getInt("total_time");
-                    elapsed = total - timeRemaining;
-                    remaining = timeRemaining;
+                    holder.progress.setVisibility(View.GONE);
+                    holder.timeToLearn.setVisibility(View.GONE);
+                    holder.timeToLearnLabel.setVisibility(View.GONE);
                 }
-
-                holder.progress.setMax(total);
-                holder.progress.setProgress(elapsed);
-                holder.timeToLearn.setText(formatDuration(remaining, true));
             }
-            else
+            catch (JSONException e1)
             {
-                holder.progress.setVisibility(View.GONE);
-                holder.timeToLearn.setVisibility(View.GONE);
-                holder.timeToLearnLabel.setVisibility(View.GONE);
+                e1.printStackTrace();
             }
-        }
-        catch (JSONException e1)
-        {
-            // TODO Auto-generated catch block
-            e1.printStackTrace();
         }
 
         return v;
