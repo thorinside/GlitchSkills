@@ -6,13 +6,13 @@ import android.support.v4.view.Menu;
 import android.support.v4.view.MenuItem;
 import android.support.v4.view.ActionMode.Callback;
 
-class LearnSkillActionMode implements Callback
+class CancelUnlearningActionMode implements Callback
 {
     private final GlitchSkillsActivity glitchSkillsActivity;
     private final String title;
     private final JSONObject skill;
 
-    LearnSkillActionMode(GlitchSkillsActivity glitchSkillsActivity, String title, JSONObject skill)
+    CancelUnlearningActionMode(GlitchSkillsActivity glitchSkillsActivity, String title, JSONObject skill)
     {
         this.glitchSkillsActivity = glitchSkillsActivity;
         this.title = title;
@@ -22,16 +22,10 @@ class LearnSkillActionMode implements Callback
     @Override
     public boolean onActionItemClicked(ActionMode mode, MenuItem item)
     {
-        if (item.getItemId() == R.id.learn)
+        if (item.getItemId() == R.id.cancel_unlearn)
         {
-            this.glitchSkillsActivity.learnSkill(skill);
+            this.glitchSkillsActivity.cancelUnlearnSkill(skill);
         }
-        /*
-        else if (item.getItemId() == R.id.queue)
-        {
-            this.glitchSkillsActivity.queueSkill(skill);
-        }
-        */
         mode.finish();
         return true;
     }
@@ -39,8 +33,9 @@ class LearnSkillActionMode implements Callback
     @Override
     public boolean onCreateActionMode(ActionMode mode, Menu menu)
     {
+
         mode.setTitle(title);
-        this.glitchSkillsActivity.getMenuInflater().inflate(R.menu.learn_menu, menu);
+        this.glitchSkillsActivity.getMenuInflater().inflate(R.menu.cancel_unlearn_menu, menu);
 
         return true;
     }

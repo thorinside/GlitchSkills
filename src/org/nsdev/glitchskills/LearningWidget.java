@@ -3,6 +3,7 @@ package org.nsdev.glitchskills;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.util.Date;
+import org.json.JSONException;
 import org.json.JSONObject;
 import android.app.AlarmManager;
 import android.app.Notification;
@@ -65,6 +66,7 @@ public class LearningWidget extends AppWidgetProvider
     public static class UpdateService extends Service
     {
         private static JSONObject cachedSkill;
+        private boolean cachedUnlearning;
         private static Bitmap cachedIconBitmap;
 
         private final class LoadIconAsyncTask extends AsyncTask<String, Object, Bitmap>
@@ -154,11 +156,11 @@ public class LearningWidget extends AppWidgetProvider
             }
             else
             {
-                buildUpdate(this, "NetworkUpdate".equals(action));
+                buildUpdate(this, "NetworkUpdate".equals(action), intent.getBooleanExtra("ClearCache", false));
             }
         }
 
-        public void buildUpdate(final Context context, boolean useNetwork)
+        public void buildUpdate(final Context context, boolean useNetwork, boolean clearCache)
         {
             final RemoteViews updateViews = new RemoteViews(context.getPackageName(), R.layout.appwidget_learning);
 
@@ -190,6 +192,9 @@ public class LearningWidget extends AppWidgetProvider
 
             if (useNetwork || cachedSkill == null)
             {
+                cachedSkill = null;
+                cachedUnlearning = false;
+                
                 glitch.authorize(context, "read", new GlitchSessionDelegate()
                 {
 
@@ -197,7 +202,7 @@ public class LearningWidget extends AppWidgetProvider
                     public void glitchLoginSuccess()
                     {
 
-                        GlitchRequest req = glitch.getRequest("skills.listLearning");
+                        GlitchRequest req = glitch.getRequest(GlitchSkillsActivity.SKILLS_LIST_LEARNING);
                         req.execute(new GlitchRequestDelegate()
                         {
 
@@ -215,17 +220,51 @@ public class LearningWidget extends AppWidgetProvider
                                 JSONObject learning = request.response.optJSONObject("learning");
                                 if (learning == null)
                                 {
-                                    // No skills are currently learning
-                                    updateNotLearning(glitch);
+                                    // Let's see if we're unlearning something right now.
+                                    
+                                    GlitchRequest req = glitch.getRequest(GlitchSkillsActivity.SKILLS_LIST_UNLEARNING);
+                                    req.execute(new GlitchRequestDelegate() {
 
+                                        @Override
+                                        public void requestFinished(GlitchRequest request)
+                                        {
+                                            JSONObject response = request.response;
+                                            if (response == null)
+                                                return;
+
+                                            if (response.optInt("ok") == 0)
+                                                return;
+                                            
+                                            JSONObject unlearning = request.response.optJSONObject("unlearning");
+                                            if (unlearning == null)
+                                            {
+                                                updateNotLearning(glitch);
+                                                return;
+                                            }
+
+                                            updateSkill(context, updateViews, unlearning, true);
+                                        }
+
+                                        @Override
+                                        public void requestFailed(GlitchRequest request)
+                                        {
+                                        }
+                                        
+                                    });
+                                    
                                     return;
                                 }
 
-                                String name = learning.names().optString(0);
-                                if (name == null) return;
-                                final JSONObject skill = learning.optJSONObject(name);
+                                updateSkill(context, updateViews, learning, false);
+                            }
 
-                                updateSkillText(updateViews, skill);
+                            private void updateSkill(final Context context, final RemoteViews updateViews, JSONObject newSkill, boolean isUnlearning)
+                            {
+                                String name = newSkill.names().optString(0);
+                                if (name == null) return;
+                                final JSONObject skill = newSkill.optJSONObject(name);
+
+                                updateSkillText(updateViews, skill, isUnlearning);
                                 
                                 resetLearningFinishedNotification(context, skill);
                                 
@@ -318,22 +357,30 @@ public class LearningWidget extends AppWidgetProvider
             else if (cachedSkill != null)
             {
                 // Just display the cached values.
-                updateSkillText(updateViews, cachedSkill);
+                updateSkillText(updateViews, cachedSkill, cachedUnlearning);
                 if (cachedIconBitmap != null)
                     updateIconAndUpdateAppWidget(context, updateViews, cachedIconBitmap);
             }
         }
 
-        public void updateSkillText(final RemoteViews updateViews, JSONObject skill)
+        public void updateSkillText(final RemoteViews updateViews, JSONObject skill, boolean isUnlearning)
         {
             cachedSkill = skill;
+            cachedUnlearning = isUnlearning;
             
-            updateViews.setTextViewText(R.id.skill_title, skill.optString("name"));
+            if (isUnlearning)
+            {
+                updateViews.setTextViewText(R.id.skill_title, "Unlearning: " + skill.optString("name"));
+            }
+            else
+            {
+                updateViews.setTextViewText(R.id.skill_title, skill.optString("name"));
+            }
             updateViews.setTextViewText(R.id.skill_description, skill.optString("description"));
 
             int timeRemaining = skill.optInt("time_remaining");
 
-            if (timeRemaining != 0)
+            if (timeRemaining != 0 || isUnlearning)
             {
                 if (Build.VERSION.SDK_INT > Build.VERSION_CODES.GINGERBREAD)
                 {
@@ -341,11 +388,24 @@ public class LearningWidget extends AppWidgetProvider
                     updateViews.setViewVisibility(R.id.skill_time_to_learn, View.VISIBLE);
                     updateViews.setViewVisibility(R.id.skill_time_to_learn_label, View.VISIBLE);
                 }
-                
+
+                long currentTime = System.currentTimeMillis() / 1000L;
+
+                if (isUnlearning && timeRemaining != 0)
+                {
+                    try
+                    {
+                        skill.put("time_start", currentTime);
+                        skill.put("time_complete", currentTime + timeRemaining);
+                    } 
+                    catch (JSONException ex)
+                    {
+                        
+                    }
+                }
+
                 long timeStart = skill.optLong("time_start");
                 long timeComplete = skill.optLong("time_complete");
-                
-                long currentTime = System.currentTimeMillis() / 1000L;
                 
                 if (timeComplete < (currentTime + 60)) 
                 {
@@ -363,7 +423,13 @@ public class LearningWidget extends AppWidgetProvider
                 int elapsed = (int)(currentTime - timeStart);
                 int total = (int)(timeComplete - timeStart);
                 int remaining = total - elapsed;
-                
+
+                if (isUnlearning && timeRemaining == 0)
+                {
+                    remaining = total;
+                    elapsed = 0;
+                }
+
                 updateViews.setProgressBar(R.id.skill_progress, total, elapsed, false);
                 updateViews.setTextViewText(R.id.skill_time_to_learn, SkillsAdapter.formatDuration(remaining, false));
             }
@@ -387,5 +453,6 @@ public class LearningWidget extends AppWidgetProvider
             AppWidgetManager manager = AppWidgetManager.getInstance(context);
             manager.updateAppWidget(thisWidget, updateViews);
         }
+
     }
 }

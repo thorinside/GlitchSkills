@@ -46,5 +46,6 @@
     <string name="widget_unknown_glitch">I haven\'t got the foggiest idea who you are, so click the icon and enlighten me.</string>
     <string name="learn">Learn</string>
     <string name="unlearn">Unlearn</string>
+    <string name="cancel_unlearn">Cancel Unlearning</string>
     <string name="queue">Queue</string>
 </resources>

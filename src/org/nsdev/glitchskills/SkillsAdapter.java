@@ -74,14 +74,18 @@ public class SkillsAdapter extends BaseAdapter
         final JSONArray jsonArray;
         final private ArrayList<NameIndexEntry> nameIndex = new ArrayList<NameIndexEntry>();
         final int order;
+        final int action;
+        final boolean hasAction;
         
-        public SkillsCategory(JSONObject obj, boolean isTitleVisible, String title, int order)
+        public SkillsCategory(JSONObject obj, boolean isTitleVisible, String title, boolean hasAction, int action, int order)
         {
             this.order = order;
             this.jsonArray = obj.names();
             this.obj = obj;
             this.title = title;
             this.isTitleVisible = isTitleVisible;
+            this.hasAction = hasAction;
+            this.action = action;
             
             if (jsonArray != null)
             {
@@ -194,11 +198,18 @@ public class SkillsAdapter extends BaseAdapter
         return entries.size();
     }
     
-    public JSONObject getSkill(int index) throws JSONException
+    public JSONObject getSkill(int index)
     {
         SkillsListEntry entry = (SkillsListEntry)getItem(index);
         if (entry.entryType == 0) throw new RuntimeException("Not a skill entry!");
-        return entry.category.getSkill(entry.categoryIndex);
+        try
+        {
+            return entry.category.getSkill(entry.categoryIndex);
+        }
+        catch (JSONException e)
+        {
+        }
+        return null;
     }
     
     @Override
@@ -246,7 +257,11 @@ public class SkillsAdapter extends BaseAdapter
     public boolean isEnabled(int position)
     {
         SkillsListEntry entry = (SkillsListEntry)getItem(position);
-        return entry != null && entry.entryType != 0;
+        if (entry != null)
+        {
+            if (entry.category.hasAction) return true;
+        }
+        return false;
     }
 
     @Override
@@ -295,8 +310,10 @@ public class SkillsAdapter extends BaseAdapter
                 holder.icon.loadImage();
     
                 int timeRemaining = o.optInt("time_remaining");
+                
+                boolean isUnlearnSkill = o.has("unlearn_quest_removal");
     
-                if (timeRemaining != 0)
+                if (timeRemaining != 0 || isUnlearnSkill)
                 {
                     holder.progress.setVisibility(View.VISIBLE);
                     holder.timeToLearn.setVisibility(View.VISIBLE);
@@ -322,6 +339,17 @@ public class SkillsAdapter extends BaseAdapter
                         total = o.getInt("total_time");
                         elapsed = total - timeRemaining;
                         remaining = timeRemaining;
+                        
+                        if (isUnlearnSkill && timeRemaining != 0)
+                        {
+                            o.put("time_start", System.currentTimeMillis() / 1000L);
+                            o.put("time_complete", System.currentTimeMillis() / 1000L + timeRemaining);
+                        }
+                        else if (isUnlearnSkill && timeRemaining == 0)
+                        {
+                            remaining = total;
+                            elapsed = 0;
+                        }
                     }
     
                     holder.progress.setMax(total);

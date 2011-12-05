@@ -1,5 +1,6 @@
 package org.nsdev.glitchskills;
 
+import org.nsdev.glitchskills.SkillsAdapter.SkillsListEntry;
 import android.os.Bundle;
 import android.support.v4.app.ListFragment;
 import android.support.v4.app.SupportActivity;
@@ -9,17 +10,13 @@ import android.widget.ListView;
 public class ClickableListFragment extends ListFragment {
 
     private GlitchSkillsActivity glitchSkillsActivity;
-    private final int requestCode;
 
     public ClickableListFragment() {
-        requestCode = 0;
     }
     
-    public ClickableListFragment(GlitchSkillsActivity glitchSkillsActivity, int requestCode)
+    public ClickableListFragment(GlitchSkillsActivity glitchSkillsActivity)
     {
         this.glitchSkillsActivity = glitchSkillsActivity;
-        this.requestCode  = requestCode;
-        
     }
 
     @Override
@@ -30,7 +27,9 @@ public class ClickableListFragment extends ListFragment {
     @Override
     public void onListItemClick(ListView l, View v, int position, long id) {
         super.onListItemClick(l, v, position, id);
-        glitchSkillsActivity.onListItemClick(l, v, position, requestCode);
+        SkillsAdapter adapter = (SkillsAdapter)l.getAdapter();
+        SkillsListEntry entry = (SkillsListEntry)adapter.getItem(position);
+        glitchSkillsActivity.onListItemClick(adapter.getSkill(position), entry.category.action);
     }
     
     @Override

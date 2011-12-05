@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -34,14 +33,12 @@ import android.support.v4.app.FragmentTransaction;
 import android.support.v4.app.ListFragment;
 import android.support.v4.view.Menu;
 import android.support.v4.view.MenuItem;
-import android.support.v4.view.PagerAdapter;
 import android.support.v4.view.ViewPager;
 import android.support.v4.view.ViewPager.OnPageChangeListener;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ListView;
 import android.widget.Toast;
 import com.github.droidfu.cachefu.ImageCache;
 import com.github.droidfu.imageloader.ImageLoader;
@@ -61,18 +58,22 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
     private static final String AUTH_CHECK = "auth.check";
     private static final String PLAYERS_INFO = "players.info";
     private static final String SKILLS_LIST_AVAILABLE = "skills.listAvailable";
+    @SuppressWarnings("unused")
     private static final String SKILLS_LIST_LEARNED = "skills.listLearned";
-    private static final String SKILLS_LIST_LEARNING = "skills.listLearning";
-    private static final String SKILLS_LIST_UNLEARNING = "skills.listUnlearning";
+    static final String SKILLS_LIST_LEARNING = "skills.listLearning";
+    static final String SKILLS_LIST_UNLEARNING = "skills.listUnlearning";
     private static final String SKILLS_LIST_UNLEARNABLE= "skills.listUnlearnable";
     private static final String SKILLS_LEARN = "skills.learn";
     private static final String SKILLS_UNLEARN = "skills.unlearn";
+    private static final String SKILLS_CANCEL_UNLEARN = "skills.cancelUnlearning";
     
-    private final int REQUEST_LEARN = 1;
-    private final int REQUEST_UNLEARN = 2;
-
+    private static final int ACTION_LEARN_OR_QUEUE = 1;
+    private static final int ACTION_CANCEL_UNLEARNING = 2;
+    private static final int ACTION_UNLEARN = 3;
+    
     static final int DIALOG_LOGIN_FAIL_ID = 0;
     static final int DIALOG_REQUEST_FAIL_ID = 1;
+
 
     private final boolean DEBUG = true;
 
@@ -127,9 +128,9 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
             ab.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
         }
 
-        studyingFragment = new ListFragment();
-        learnableFragment = new ClickableListFragment(this, REQUEST_LEARN);
-        unlearnableFragment = new ClickableListFragment(this, REQUEST_UNLEARN);
+        studyingFragment = new ClickableListFragment(this);
+        learnableFragment = new ClickableListFragment(this);
+        unlearnableFragment = new ClickableListFragment(this);
 
         final FragmentPagerAdapter adapter = new FragmentPagerAdapter(getSupportFragmentManager())
         {
@@ -241,74 +242,84 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
         handleIntent(intent);
     }
 
-    public void onListItemClick(ListView l, @SuppressWarnings("unused") View v, int position, long id)
+    public void onListItemClick(final JSONObject skill, int action)
     {
-        if (l.getAdapter() instanceof SkillsAdapter)
+        if (skill != null)
         {
-            try
+            final String title = String.format("%s", skill.optString("name"));
+
+            if (IS_HONEYCOMB)
             {
-                final JSONObject skill = ((SkillsAdapter)l.getAdapter()).getSkill(position);
-
-                if (skill != null)
-                {
-                    final String title = String.format("%s", skill.getString("name"));
-
-                    if (IS_HONEYCOMB)
-                    {
-                        if (id == REQUEST_LEARN)
-                            startActionMode(new LearnSkillActionMode(this, title, skill));
-                        else if (id == REQUEST_UNLEARN)
-                            startActionMode(new UnlearnSkillActionMode(this, title, skill));
-                    }
-                    else
-                    {
-                        if (id == REQUEST_LEARN)
-                        {
-                            // Show a confirmation dialog
-                            Builder confirmationDialogBuilder = new AlertDialog.Builder(GlitchSkillsActivity.this);
-                            confirmationDialogBuilder.setMessage(title);
-                            confirmationDialogBuilder.setCancelable(true);
-                            confirmationDialogBuilder.setNegativeButton(R.string.queue, new OnClickListener()
-                            {
-                                @Override
-                                public void onClick(DialogInterface dialog, int which)
-                                {
-                                    queueSkill(skill);
-                                }
-                            });
-                            confirmationDialogBuilder.setPositiveButton(R.string.learn, new OnClickListener()
-                            {
-                                @Override
-                                public void onClick(DialogInterface dialog, int which)
-                                {
-                                    learnSkill(skill);
-                                }
-                            });
-                            confirmationDialogBuilder.create().show();
-                        }
-                        else if (id == REQUEST_UNLEARN)
-                        {
-                            // Show a confirmation dialog
-                            Builder confirmationDialogBuilder = new AlertDialog.Builder(GlitchSkillsActivity.this);
-                            confirmationDialogBuilder.setMessage(title);
-                            confirmationDialogBuilder.setCancelable(true);
-                            confirmationDialogBuilder.setNegativeButton(android.R.string.cancel, null);
-                            confirmationDialogBuilder.setPositiveButton(R.string.unlearn, new OnClickListener()
-                            {
-                                @Override
-                                public void onClick(DialogInterface dialog, int which)
-                                {
-                                    unlearnSkill(skill);
-                                }
-                            });
-                            confirmationDialogBuilder.create().show();
-                        }
-                    }
-                }
+                if (action == ACTION_LEARN_OR_QUEUE)
+                    startActionMode(new LearnSkillActionMode(this, title, skill));
+                else if (action == ACTION_UNLEARN)
+                    startActionMode(new UnlearnSkillActionMode(this, title, skill));
+                else if (action == ACTION_CANCEL_UNLEARNING)
+                    startActionMode(new CancelUnlearningActionMode(this, title, skill));
             }
-            catch (JSONException e)
+            else
             {
-                e.printStackTrace();
+                if (action == ACTION_LEARN_OR_QUEUE)
+                {
+                    // Show a confirmation dialog
+                    Builder confirmationDialogBuilder = new AlertDialog.Builder(GlitchSkillsActivity.this);
+                    confirmationDialogBuilder.setMessage(title);
+                    confirmationDialogBuilder.setCancelable(true);
+                    confirmationDialogBuilder.setNegativeButton(android.R.string.cancel, null);
+                    /*
+                    confirmationDialogBuilder.setNegativeButton(R.string.queue, new OnClickListener()
+                    {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which)
+                        {
+                            queueSkill(skill);
+                        }
+                    });
+                    */
+                    confirmationDialogBuilder.setPositiveButton(R.string.learn, new OnClickListener()
+                    {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which)
+                        {
+                            learnSkill(skill);
+                        }
+                    });
+                    confirmationDialogBuilder.create().show();
+                }
+                else if (action == ACTION_UNLEARN)
+                {
+                    // Show a confirmation dialog
+                    Builder confirmationDialogBuilder = new AlertDialog.Builder(GlitchSkillsActivity.this);
+                    confirmationDialogBuilder.setMessage(title);
+                    confirmationDialogBuilder.setCancelable(true);
+                    confirmationDialogBuilder.setNegativeButton(android.R.string.cancel, null);
+                    confirmationDialogBuilder.setPositiveButton(R.string.unlearn, new OnClickListener()
+                    {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which)
+                        {
+                            unlearnSkill(skill);
+                        }
+                    });
+                    confirmationDialogBuilder.create().show();
+                }
+                else if (action == ACTION_CANCEL_UNLEARNING)
+                {
+                    // Show a confirmation dialog
+                    Builder confirmationDialogBuilder = new AlertDialog.Builder(GlitchSkillsActivity.this);
+                    confirmationDialogBuilder.setMessage(title);
+                    confirmationDialogBuilder.setCancelable(true);
+                    confirmationDialogBuilder.setNegativeButton(android.R.string.cancel, null);
+                    confirmationDialogBuilder.setPositiveButton(R.string.cancel_unlearn, new OnClickListener()
+                    {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which)
+                        {
+                            cancelUnlearnSkill(skill);
+                        }
+                    });
+                    confirmationDialogBuilder.create().show();
+                }
             }
         }
     }
@@ -363,6 +374,11 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
                 Toast.makeText(getApplicationContext(), error, Toast.LENGTH_LONG).show();
                 return;
             }
+            else if (method.equals(SKILLS_LEARN))
+            {
+                Toast.makeText(getApplicationContext(), error, Toast.LENGTH_LONG).show();
+                return;
+            }
 
             if (clearAuthorizationToken())
             {
@@ -384,22 +400,22 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
         }
         else if (method.equals(SKILLS_LIST_AVAILABLE))
         {
-            updateListFragment(learnableFragment, "skills", "You seem to have learned all there is to know. Show off!", response, null, 0);
+            updateListFragment(learnableFragment, "skills", "You seem to have learned all there is to know. Show off!", response, null, true, ACTION_LEARN_OR_QUEUE, 0);
             updatingLearnableFragment.decrementAndGet();
         }
         else if (method.equals(SKILLS_LIST_LEARNING))
         {
-            updateListFragment(studyingFragment, "learning", "You're not learning or unlearning anything. An idle magic rock is not a happy magic rock.", response, "Learning", 0);
+            updateListFragment(studyingFragment, "learning", "You're not learning or unlearning anything. An idle magic rock is not a happy magic rock.", response, "Learning", false, 0, 0);
             updatingStudyingFragment.decrementAndGet();
         }
         else if (method.equals(SKILLS_LIST_UNLEARNING))
         {
-            updateListFragment(studyingFragment, "unlearning", "You're not learning or unlearning anything. An idle magic rock is not a happy magic rock.", response, "Unlearning", 1);
+            updateListFragment(studyingFragment, "unlearning", "You're not learning or unlearning anything. An idle magic rock is not a happy magic rock.", response, "Unlearning", true, ACTION_CANCEL_UNLEARNING, 1);
             updatingStudyingFragment.decrementAndGet();
         }
         else if (method.equals(SKILLS_LIST_UNLEARNABLE))
         {
-            updateListFragment(unlearnableFragment, "skills", "There's absolutely nothing to unlearn when you don't know anything in the first place! Or, perhaps you need to learn to unlearn?", response, null, 0);
+            updateListFragment(unlearnableFragment, "skills", "There's absolutely nothing to unlearn when you don't know anything in the first place! Or, perhaps you need to learn to unlearn?", response, null, true, ACTION_UNLEARN, 0);
             updatingUnlearnableFragment.decrementAndGet();
         }
         else if (method.equals(SKILLS_LEARN))
@@ -410,7 +426,8 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
                 public void run()
                 {
                     performRefresh(1);
-                    studyingFragment.setListAdapter(null);
+                    resetAdapter(studyingFragment, true);
+                    resetAdapter(unlearnableFragment, true);
                     updateAppWidget();
                 }
             });
@@ -423,13 +440,29 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
                 public void run()
                 {
                     performRefresh(2);
-                    studyingFragment.setListAdapter(null);
+                    resetAdapter(studyingFragment, true);
+                    resetAdapter(learnableFragment, true);
+                    updateAppWidget();
+                }
+            });
+        }
+        else if (method.equals(SKILLS_CANCEL_UNLEARN))
+        {
+            handler.post(new Runnable()
+            {
+                @Override
+                public void run()
+                {
+                    resetAdapter(studyingFragment, true);
+                    performRefresh(0);
+                    resetAdapter(unlearnableFragment, true);
+                    updateAppWidget();
                 }
             });
         }
     }
 
-    private void updateListFragment(ListFragment listFragment, String listName, String emptyListMessage, JSONObject response, String title, int order)
+    private void updateListFragment(ListFragment listFragment, String listName, String emptyListMessage, JSONObject response, String title, boolean hasAction, int action, int order)
     {
         try
         {
@@ -447,7 +480,7 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
                 if (response.has(listName) && !response.isNull(listName))
                 {
                     JSONObject skills = response.getJSONObject(listName);
-                    SkillsCategory category = new SkillsCategory(skills, title != null, title, order);
+                    SkillsCategory category = new SkillsCategory(skills, title != null, title, hasAction, action, order);
                     adapter.addSkillsCategory(category);
                 }
             }
@@ -609,7 +642,7 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
             if (DEBUG) Log.d(TAG, "Updating Studying Fragment");
             updatingStudyingFragment.set(2);
             
-            resetAdapter(studyingFragment);
+            resetAdapter(studyingFragment, false);
             glitch.getRequest(SKILLS_LIST_LEARNING).execute(this);
             glitch.getRequest(SKILLS_LIST_UNLEARNING).execute(this);
         }
@@ -618,7 +651,7 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
             if (DEBUG) Log.d(TAG, "Updating Learnable Fragment");
             updatingLearnableFragment.set(1);
             
-            resetAdapter(learnableFragment);
+            resetAdapter(learnableFragment, false);
             glitch.getRequest(SKILLS_LIST_AVAILABLE).execute(this);
         }
         else if (position == 2 && updatingUnlearnableFragment.get() == 0)
@@ -626,7 +659,7 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
             if (DEBUG) Log.d(TAG, "Updating Unlearnable Fragment");
             updatingUnlearnableFragment.set(1);
             
-            resetAdapter(unlearnableFragment);
+            resetAdapter(unlearnableFragment, false);
             glitch.getRequest(SKILLS_LIST_UNLEARNABLE).execute(this);
         }
     }
@@ -646,7 +679,7 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
         return false;
     }
 
-    private void resetAdapter(ListFragment listFragment)
+    private void resetAdapter(ListFragment listFragment, boolean kill)
     {
         SkillsAdapter adapter = (SkillsAdapter)listFragment.getListAdapter();
         if (adapter != null)
@@ -656,6 +689,11 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
             {
                 listFragment.setListShown(false);
             } catch (IllegalStateException ex) {
+            }
+            
+            if (kill)
+            {
+                listFragment.setListAdapter(null);
             }
         }
     }
@@ -669,6 +707,19 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
             Map<String, String> params = new HashMap<String, String>();
             params.put("skill_class", tsid);
             GlitchRequest req = glitch.getRequest(SKILLS_UNLEARN, params);
+            req.execute(GlitchSkillsActivity.this);
+        }
+    }
+    
+    public void cancelUnlearnSkill(JSONObject skill)
+    {
+        String tsid = skill.optString("class_tsid");
+
+        if (tsid != null)
+        {
+            Map<String, String> params = new HashMap<String, String>();
+            params.put("skill_class", tsid);
+            GlitchRequest req = glitch.getRequest(SKILLS_CANCEL_UNLEARN, params);
             req.execute(GlitchSkillsActivity.this);
         }
     }
@@ -729,6 +780,7 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
     {
         final Intent intent = new Intent(GlitchSkillsActivity.this, UpdateService.class);
         intent.setAction("NetworkUpdate");
+        intent.putExtra("ClearCache", true);
         startService(intent);
     }
 
@@ -769,5 +821,4 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
             databaseHelper = null;
         }
     }
-
 }

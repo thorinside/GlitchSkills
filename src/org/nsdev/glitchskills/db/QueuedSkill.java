@@ -12,6 +12,9 @@ public class QueuedSkill
     @DatabaseField
     int position;
     
+    @DatabaseField
+    boolean isUnlearning;
+    
     QueuedSkill() {
     }
 

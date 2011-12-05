@@ -5,9 +5,10 @@
         android:id="@+id/learn"
         android:title="@string/learn">
     </item>
+    <!-- 
     <item
         android:id="@+id/queue"
         android:title="@string/queue">
     </item>
-
+ 	-->
 </menu>
