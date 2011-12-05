@@ -37,4 +37,11 @@ public class ClickableListFragment extends ListFragment {
         super.onAttach(activity);
         glitchSkillsActivity = (GlitchSkillsActivity)activity;
     }
+
+    @Override
+    public void onViewCreated(View view, Bundle savedInstanceState)
+    {
+        super.onViewCreated(view, savedInstanceState);
+        getListView().setFastScrollEnabled(true);
+    }
 }
