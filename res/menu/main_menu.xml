@@ -12,7 +12,7 @@
         android:id="@+id/menu_item_clear_queue"
         android:showAsAction="never"
         android:title="Clear Queue"
-        android:visible="true">
+        android:visible="false">
     </item>
 
     <item
