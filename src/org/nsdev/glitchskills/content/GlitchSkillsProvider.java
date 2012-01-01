@@ -23,6 +23,14 @@ public class GlitchSkillsProvider extends ContentProvider
     @Override
     public int delete(Uri uri, String selection, String[] selectionArgs)
     {
+        // Just delete everything in the cache
+        if (uri.getPath().isEmpty()) 
+        {
+            if (Constants.DEBUG) Log.d(TAG, "Deleting all cached responses.");
+            getContext().getSharedPreferences("CachedResponses", Context.MODE_PRIVATE).edit().clear().commit();
+            return 1;
+        }
+
         return 0;
     }
 

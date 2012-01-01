@@ -453,7 +453,6 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
                 public void run()
                 {
                     performRefresh();
-                    updateAppWidget();
                 }
             });
         }
@@ -465,7 +464,6 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
                 public void run()
                 {
                     performRefresh();
-                    updateAppWidget();
                 }
             });
         }
@@ -477,7 +475,6 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
                 public void run()
                 {
                     performRefresh();
-                    updateAppWidget();
                 }
             });
         }
@@ -506,6 +503,8 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
         {
             updateListFragment(unlearnableFragment, "skills", "There's absolutely nothing to unlearn when you don't know anything in the first place! Or, perhaps you need to learn to unlearn?", response, null, true, ACTION_UNLEARN, 0);
         }
+        
+        updateAppWidget();
     }
 
     private void updateListFragment(ListFragment listFragment, String listName, String emptyListMessage, JSONObject response, String title, boolean hasAction, int action, int order)
@@ -564,7 +563,9 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
         if (prefs.contains("redirectUri"))
         {
             prefs.edit().remove("redirectUri").commit();
-            
+
+            // Clear out the cache
+            getContentResolver().delete(Uri.parse("content://"+Constants.AUTHORITY), null, null);
             
             AccountManager manager = AccountManager.get(this);
             manager.removeAccount(account, new AccountManagerCallback<Boolean>()

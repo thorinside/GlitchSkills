@@ -16,19 +16,22 @@ public class ContentHelper
 
         Cursor c = context.getContentResolver().query(uri, null, null, null, null);
 
-        c.moveToFirst();
-        String res = c.getString(c.getColumnIndex("response"));
-        c.close();
-
-        try
+        if (c != null)
         {
-            JSONObject response = (JSONObject)new JSONTokener(res).nextValue();
-            return response;
-        }
-        catch (JSONException e)
-        {
-            if (Constants.DEBUG)
-                e.printStackTrace();
+            c.moveToFirst();
+            String res = c.getString(c.getColumnIndex("response"));
+            c.close();
+    
+            try
+            {
+                JSONObject response = (JSONObject)new JSONTokener(res).nextValue();
+                return response;
+            }
+            catch (JSONException e)
+            {
+                if (Constants.DEBUG)
+                    e.printStackTrace();
+            }
         }
 
         return null;

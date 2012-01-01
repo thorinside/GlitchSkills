@@ -58,9 +58,11 @@ public class LearningWidget extends AppWidgetProvider
     public static class UpdateService extends Service
     {
         private static Bitmap cachedIconBitmap;
+        private static String cachedIconUrl;
 
         private final class LoadIconAsyncTask extends AsyncTask<String, Object, Bitmap>
         {
+            private static final String TAG = "LoadIconAsyncTask";
             private final Context context;
             private final RemoteViews updateViews;
 
@@ -77,10 +79,20 @@ public class LearningWidget extends AppWidgetProvider
 
                 if (iconUrl != null)
                 {
+                    if (cachedIconUrl != null && iconUrl.equals(cachedIconUrl) && cachedIconBitmap != null)
+                    {
+                        if (Constants.DEBUG)
+                            Log.d(TAG, "Returning cached icon bitmap.");
+                        return cachedIconBitmap;
+                    }
+
                     Bitmap b = null;
                     try
                     {
+                        if (Constants.DEBUG)
+                            Log.d(TAG, "Downloading icon: " + iconUrl);
                         b = BitmapFactory.decodeStream(((java.io.InputStream)new java.net.URL(iconUrl).getContent()));
+                        cachedIconUrl = iconUrl;
                         return b;
                     }
                     catch (MalformedURLException e)
@@ -101,7 +113,7 @@ public class LearningWidget extends AppWidgetProvider
             {
                 updateIconAndUpdateAppWidget(context, updateViews, result);
 
-                if (cachedIconBitmap != null)
+                if (cachedIconBitmap != null && result != cachedIconBitmap)
                 {
                     cachedIconBitmap.recycle();
                 }
@@ -160,10 +172,35 @@ public class LearningWidget extends AppWidgetProvider
             PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
             updateViews.setOnClickPendingIntent(R.id.skill_icon, pendingIntent);
 
-            /*
-            final Glitch glitch = new Glitch("145-51ad5d3a7e58913e63707fc1cfdde3bda2ff39f3", "nosuchglitch://auth");
-            if (!glitch.hasAuthToken(context))
+            JSONObject response = ContentHelper.getContent(context, Constants.SKILLS_LIST_LEARNING);
+            if (response != null && response.optInt("ok") == 1)
             {
+                JSONObject learning = response.optJSONObject("learning");
+                if (learning != null)
+                {
+                    updateSkill(context, updateViews, learning, false);
+                }
+                else
+                {
+                    // Let's see if we're unlearning something right now.
+                    response = ContentHelper.getContent(context, Constants.SKILLS_LIST_UNLEARNING);
+                    if (response != null && response.optInt("ok") == 1)
+                    {
+                        JSONObject unlearning = response.optJSONObject("unlearning");
+                        if (unlearning != null)
+                        {
+                            updateSkill(context, updateViews, unlearning, true);
+                        }
+                        else
+                        {
+                            updateNotLearning(updateViews);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Set up the default since we probably don't know the user yet
                 updateViews.setImageViewResource(R.id.skill_icon, R.drawable.icon);
                 updateViews.setTextViewText(R.id.skill_title, context.getResources().getText(R.string.app_name));
                 updateViews.setTextViewText(R.id.skill_description, context.getString(R.string.widget_unknown_glitch));
@@ -178,47 +215,8 @@ public class LearningWidget extends AppWidgetProvider
                 ComponentName thisWidget = new ComponentName(context, LearningWidget.class);
                 AppWidgetManager manager = AppWidgetManager.getInstance(context);
                 manager.updateAppWidget(thisWidget, updateViews);
-
-                return;
             }
-            */
-            
-            JSONObject response = ContentHelper.getContent(context, Constants.SKILLS_LIST_LEARNING);
-
-            if (response == null)
-                return;
-
-            if (response.optInt("ok") == 0)
-                return;
-
-            JSONObject learning = response.optJSONObject("learning");
-            if (learning == null)
-            {
-                // Let's see if we're unlearning something
-                // right now.
-
-                response = ContentHelper.getContent(context, Constants.SKILLS_LIST_UNLEARNING);
-                if (response == null)
-                    return;
-
-                if (response.optInt("ok") == 0)
-                    return;
-
-                JSONObject unlearning = response.optJSONObject("unlearning");
-                if (unlearning == null)
-                {
-                    updateNotLearning();
-                    return;
-                }
-
-                updateSkill(context, updateViews, unlearning, true);
-
-                return;
-            }
-
-            updateSkill(context, updateViews, learning, false);
         }
-
 
         private void updateSkill(final Context context, final RemoteViews updateViews, JSONObject newSkill, boolean isUnlearning)
         {
@@ -260,32 +258,27 @@ public class LearningWidget extends AppWidgetProvider
             }
         }
 
-        private void updateNotLearning()
+        private void updateNotLearning(RemoteViews updateViews)
         {
-            final RemoteViews updateViews = new RemoteViews(getApplicationContext().getPackageName(), R.layout.appwidget_learning);
-
             JSONObject response = ContentHelper.getContent(getApplicationContext(), Constants.PLAYERS_INFO);
-            
-            if (response == null)
-                return;
 
-            if (response.optInt("ok") == 0)
-                return;
-
-            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.GINGERBREAD)
+            if (response != null && response.optInt("ok") == 1)
             {
-                updateViews.setViewVisibility(R.id.skill_progress, View.INVISIBLE);
-                updateViews.setViewVisibility(R.id.skill_time_to_learn, View.INVISIBLE);
-                updateViews.setViewVisibility(R.id.skill_time_to_learn_label, View.INVISIBLE);
+                if (Build.VERSION.SDK_INT > Build.VERSION_CODES.GINGERBREAD)
+                {
+                    updateViews.setViewVisibility(R.id.skill_progress, View.INVISIBLE);
+                    updateViews.setViewVisibility(R.id.skill_time_to_learn, View.INVISIBLE);
+                    updateViews.setViewVisibility(R.id.skill_time_to_learn_label, View.INVISIBLE);
+                }
+
+                updateViews.setTextViewText(R.id.skill_title, response.optString("player_name"));
+                updateViews.setTextViewText(R.id.skill_description, getString(R.string.widget_not_learning));
+
+                LoadIconAsyncTask iconTask = new LoadIconAsyncTask(getApplicationContext(), updateViews);
+                iconTask.execute(response.optString("avatar_url"));
             }
-
-            updateViews.setTextViewText(R.id.skill_title, response.optString("player_name"));
-            updateViews.setTextViewText(R.id.skill_description, getString(R.string.widget_not_learning));
-
-            LoadIconAsyncTask iconTask = new LoadIconAsyncTask(getApplicationContext(), updateViews);
-            iconTask.execute(response.optString("avatar_url"));
         }
-        
+
         public void updateSkillText(final RemoteViews updateViews, JSONObject skill, boolean isUnlearning)
         {
             if (isUnlearning)
@@ -372,6 +365,5 @@ public class LearningWidget extends AppWidgetProvider
             AppWidgetManager manager = AppWidgetManager.getInstance(context);
             manager.updateAppWidget(thisWidget, updateViews);
         }
-
     }
 }
