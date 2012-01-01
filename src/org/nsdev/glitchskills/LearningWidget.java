@@ -37,21 +37,13 @@ public class LearningWidget extends AppWidgetProvider
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds)
     {
         Intent updateIntent = new Intent(context, UpdateService.class);
-        updateIntent.setAction("NetworkUpdate");
+        updateIntent.setAction("FastUpdate");
         context.startService(updateIntent);
 
         if (!alarmSet)
         {
             alarmSet = true;
-
-            // Slow update
-            final Intent intent = new Intent(context, UpdateService.class);
-            intent.setAction("NetworkUpdate");
-            final PendingIntent pending = PendingIntent.getService(context, 0, intent, 0);
             final AlarmManager alarm = (AlarmManager)context.getSystemService(Context.ALARM_SERVICE);
-            alarm.cancel(pending);
-            long interval = 1000 * 60 * 15;
-            alarm.setRepeating(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime(), interval, pending);
 
             // Fast update
             final Intent intent2 = new Intent(context, UpdateService.class);
@@ -65,8 +57,6 @@ public class LearningWidget extends AppWidgetProvider
 
     public static class UpdateService extends Service
     {
-        private static JSONObject cachedSkill;
-        private boolean cachedUnlearning;
         private static Bitmap cachedIconBitmap;
 
         private final class LoadIconAsyncTask extends AsyncTask<String, Object, Bitmap>
@@ -110,7 +100,7 @@ public class LearningWidget extends AppWidgetProvider
             protected void onPostExecute(Bitmap result)
             {
                 updateIconAndUpdateAppWidget(context, updateViews, result);
-                
+
                 if (cachedIconBitmap != null)
                 {
                     cachedIconBitmap.recycle();
@@ -128,10 +118,11 @@ public class LearningWidget extends AppWidgetProvider
         @Override
         public void onStart(Intent intent, int startId)
         {
-            if (intent == null) return;
-            
+            if (intent == null)
+                return;
+
             String action = intent.getAction();
-            
+
             if ("FinishedNotification".equals(action))
             {
                 String text = intent.getStringExtra("text");
@@ -144,8 +135,8 @@ public class LearningWidget extends AppWidgetProvider
                 notification.ledARGB = 0xFF00FF00;
                 notification.ledOnMS = 250;
                 notification.ledOffMS = 250;
-                notification.vibrate = new long[] { 0L, 200L, 100L, 200L, 100L, 200L, 100L, 200L, 100L };
-                
+                notification.vibrate = new long[] {0L, 200L, 100L, 200L, 100L, 200L, 100L, 200L, 100L};
+
                 CharSequence contentTitle = "Glitch Skills";
                 CharSequence contentText = text;
                 Intent notificationIntent = new Intent(this, GlitchSkillsActivity.class);
@@ -156,11 +147,11 @@ public class LearningWidget extends AppWidgetProvider
             }
             else
             {
-                buildUpdate(this, "NetworkUpdate".equals(action), intent.getBooleanExtra("ClearCache", false));
+                buildUpdate(this);
             }
         }
 
-        public void buildUpdate(final Context context, boolean useNetwork, boolean clearCache)
+        public void buildUpdate(final Context context)
         {
             final RemoteViews updateViews = new RemoteViews(context.getPackageName(), R.layout.appwidget_learning);
 
@@ -169,205 +160,134 @@ public class LearningWidget extends AppWidgetProvider
             PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
             updateViews.setOnClickPendingIntent(R.id.skill_icon, pendingIntent);
 
+            /*
             final Glitch glitch = new Glitch("145-51ad5d3a7e58913e63707fc1cfdde3bda2ff39f3", "nosuchglitch://auth");
             if (!glitch.hasAuthToken(context))
             {
                 updateViews.setImageViewResource(R.id.skill_icon, R.drawable.icon);
                 updateViews.setTextViewText(R.id.skill_title, context.getResources().getText(R.string.app_name));
                 updateViews.setTextViewText(R.id.skill_description, context.getString(R.string.widget_unknown_glitch));
-                
+
                 if (Build.VERSION.SDK_INT > Build.VERSION_CODES.GINGERBREAD)
                 {
                     updateViews.setViewVisibility(R.id.skill_progress, View.INVISIBLE);
                     updateViews.setViewVisibility(R.id.skill_time_to_learn, View.INVISIBLE);
                     updateViews.setViewVisibility(R.id.skill_time_to_learn_label, View.INVISIBLE);
                 }
-                
+
                 ComponentName thisWidget = new ComponentName(context, LearningWidget.class);
                 AppWidgetManager manager = AppWidgetManager.getInstance(context);
                 manager.updateAppWidget(thisWidget, updateViews);
 
                 return;
             }
+            */
+            
+            JSONObject response = ContentHelper.getContent(context, Constants.SKILLS_LIST_LEARNING);
 
-            if (useNetwork || cachedSkill == null)
+            if (response == null)
+                return;
+
+            if (response.optInt("ok") == 0)
+                return;
+
+            JSONObject learning = response.optJSONObject("learning");
+            if (learning == null)
             {
-                cachedSkill = null;
-                cachedUnlearning = false;
-                
-                glitch.authorize(context, "read", new GlitchSessionDelegate()
+                // Let's see if we're unlearning something
+                // right now.
+
+                response = ContentHelper.getContent(context, Constants.SKILLS_LIST_UNLEARNING);
+                if (response == null)
+                    return;
+
+                if (response.optInt("ok") == 0)
+                    return;
+
+                JSONObject unlearning = response.optJSONObject("unlearning");
+                if (unlearning == null)
                 {
+                    updateNotLearning();
+                    return;
+                }
 
-                    @Override
-                    public void glitchLoginSuccess()
-                    {
+                updateSkill(context, updateViews, unlearning, true);
 
-                        GlitchRequest req = glitch.getRequest(GlitchSkillsActivity.SKILLS_LIST_LEARNING);
-                        req.execute(new GlitchRequestDelegate()
-                        {
-
-                            @Override
-                            public void requestFinished(GlitchRequest request)
-                            {
-
-                                JSONObject response = request.response;
-                                if (response == null)
-                                    return;
-
-                                if (response.optInt("ok") == 0)
-                                    return;
-
-                                JSONObject learning = request.response.optJSONObject("learning");
-                                if (learning == null)
-                                {
-                                    // Let's see if we're unlearning something right now.
-                                    
-                                    GlitchRequest req = glitch.getRequest(GlitchSkillsActivity.SKILLS_LIST_UNLEARNING);
-                                    req.execute(new GlitchRequestDelegate() {
-
-                                        @Override
-                                        public void requestFinished(GlitchRequest request)
-                                        {
-                                            JSONObject response = request.response;
-                                            if (response == null)
-                                                return;
-
-                                            if (response.optInt("ok") == 0)
-                                                return;
-                                            
-                                            JSONObject unlearning = request.response.optJSONObject("unlearning");
-                                            if (unlearning == null)
-                                            {
-                                                updateNotLearning(glitch);
-                                                return;
-                                            }
-
-                                            updateSkill(context, updateViews, unlearning, true);
-                                        }
-
-                                        @Override
-                                        public void requestFailed(GlitchRequest request)
-                                        {
-                                        }
-                                        
-                                    });
-                                    
-                                    return;
-                                }
-
-                                updateSkill(context, updateViews, learning, false);
-                            }
-
-                            private void updateSkill(final Context context, final RemoteViews updateViews, JSONObject newSkill, boolean isUnlearning)
-                            {
-                                String name = newSkill.names().optString(0);
-                                if (name == null) return;
-                                final JSONObject skill = newSkill.optJSONObject(name);
-
-                                updateSkillText(updateViews, skill, isUnlearning);
-                                
-                                resetLearningFinishedNotification(context, skill);
-                                
-                                LoadIconAsyncTask iconTask = new LoadIconAsyncTask(context, updateViews);
-                                iconTask.execute(skill.optString("icon_100"));
-                            }
-
-                            private void resetLearningFinishedNotification(Context ctx, JSONObject skill)
-                            {
-                                if (skill != null && skill.has("name") && skill.has("time_complete"))
-                                {
-                                    String text = String.format(ctx.getString(R.string.widget_skill_s_finished_learning), skill.optString("name"));
-                                    Intent alarm = new Intent(ctx, UpdateService.class);
-                                    alarm.setAction("FinishedNotification");
-                                    alarm.putExtra("text", text);
-                                    PendingIntent pend = PendingIntent.getService(ctx, 0, alarm, PendingIntent.FLAG_CANCEL_CURRENT);
-                                    AlarmManager am = (AlarmManager)getSystemService(ALARM_SERVICE);
-                                    am.cancel(pend);
-                                    
-                                    long timeComplete = skill.optLong("time_complete") * 1000;
-                                    
-                                    // Use for debugging notifications only
-                                    // timeComplete = System.currentTimeMillis() + 2000;
-                                    
-                                    Date d = new Date(timeComplete);
-                                    Log.i("GlitchSkills", "Scheduled notification at "+d.toLocaleString());
-                                    
-                                    am.set(AlarmManager.RTC_WAKEUP, timeComplete, pend);
-                                } 
-                            }
-
-                            @Override
-                            public void requestFailed(GlitchRequest request)
-                            {
-                            }
-
-                            private void updateNotLearning(Glitch glitch)
-                            {
-                                GlitchRequest request = glitch.getRequest("players.info");
-                                request.execute(new GlitchRequestDelegate()
-                                {
-
-                                    @Override
-                                    public void requestFinished(GlitchRequest request)
-                                    {
-                                        JSONObject response = request.response;
-                                        if (response == null)
-                                            return;
-
-                                        if (response.optInt("ok") == 0)
-                                            return;
-
-                                        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.GINGERBREAD)
-                                        {
-                                            updateViews.setViewVisibility(R.id.skill_progress, View.INVISIBLE);
-                                            updateViews.setViewVisibility(R.id.skill_time_to_learn, View.INVISIBLE);
-                                            updateViews.setViewVisibility(R.id.skill_time_to_learn_label, View.INVISIBLE);
-                                        }
-
-                                        updateViews.setTextViewText(R.id.skill_title, response.optString("player_name"));
-                                        updateViews.setTextViewText(R.id.skill_description, getString(R.string.widget_not_learning));
-
-                                        LoadIconAsyncTask iconTask = new LoadIconAsyncTask(context, updateViews);
-                                        iconTask.execute(response.optString("avatar_url"));
-                                    }
-
-                                    @Override
-                                    public void requestFailed(GlitchRequest arg0)
-                                    {
-                                    }
-
-                                });
-                            }
-
-                        });
-
-                    }
-
-                    @Override
-                    public void glitchLoginFail()
-                    {
-                    }
-
-                    @Override
-                    public void glitchLoggedOut()
-                    {
-                    }
-                });
+                return;
             }
-            else if (cachedSkill != null)
+
+            updateSkill(context, updateViews, learning, false);
+        }
+
+
+        private void updateSkill(final Context context, final RemoteViews updateViews, JSONObject newSkill, boolean isUnlearning)
+        {
+            String name = newSkill.names().optString(0);
+            if (name == null)
+                return;
+            final JSONObject skill = newSkill.optJSONObject(name);
+
+            updateSkillText(updateViews, skill, isUnlearning);
+
+            resetLearningFinishedNotification(context, skill);
+
+            LoadIconAsyncTask iconTask = new LoadIconAsyncTask(context, updateViews);
+            iconTask.execute(skill.optString("icon_100"));
+        }
+
+        private void resetLearningFinishedNotification(Context ctx, JSONObject skill)
+        {
+            if (skill != null && skill.has("name") && skill.has("time_complete"))
             {
-                // Just display the cached values.
-                updateSkillText(updateViews, cachedSkill, cachedUnlearning);
-                if (cachedIconBitmap != null)
-                    updateIconAndUpdateAppWidget(context, updateViews, cachedIconBitmap);
+                String text = String.format(ctx.getString(R.string.widget_skill_s_finished_learning), skill.optString("name"));
+                Intent alarm = new Intent(ctx, UpdateService.class);
+                alarm.setAction("FinishedNotification");
+                alarm.putExtra("text", text);
+                PendingIntent pend = PendingIntent.getService(ctx, 0, alarm, PendingIntent.FLAG_CANCEL_CURRENT);
+                AlarmManager am = (AlarmManager)getSystemService(ALARM_SERVICE);
+                am.cancel(pend);
+
+                long timeComplete = skill.optLong("time_complete") * 1000;
+
+                // Use for debugging notifications only
+                // timeComplete = System.currentTimeMillis()
+                // + 2000;
+
+                Date d = new Date(timeComplete);
+                Log.i("GlitchSkills", "Scheduled notification at " + d.toLocaleString());
+
+                am.set(AlarmManager.RTC_WAKEUP, timeComplete, pend);
             }
         }
 
+        private void updateNotLearning()
+        {
+            final RemoteViews updateViews = new RemoteViews(getApplicationContext().getPackageName(), R.layout.appwidget_learning);
+
+            JSONObject response = ContentHelper.getContent(getApplicationContext(), Constants.PLAYERS_INFO);
+            
+            if (response == null)
+                return;
+
+            if (response.optInt("ok") == 0)
+                return;
+
+            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.GINGERBREAD)
+            {
+                updateViews.setViewVisibility(R.id.skill_progress, View.INVISIBLE);
+                updateViews.setViewVisibility(R.id.skill_time_to_learn, View.INVISIBLE);
+                updateViews.setViewVisibility(R.id.skill_time_to_learn_label, View.INVISIBLE);
+            }
+
+            updateViews.setTextViewText(R.id.skill_title, response.optString("player_name"));
+            updateViews.setTextViewText(R.id.skill_description, getString(R.string.widget_not_learning));
+
+            LoadIconAsyncTask iconTask = new LoadIconAsyncTask(getApplicationContext(), updateViews);
+            iconTask.execute(response.optString("avatar_url"));
+        }
+        
         public void updateSkillText(final RemoteViews updateViews, JSONObject skill, boolean isUnlearning)
         {
-            cachedSkill = skill;
-            cachedUnlearning = isUnlearning;
-            
             if (isUnlearning)
             {
                 updateViews.setTextViewText(R.id.skill_title, "Unlearning: " + skill.optString("name"));
@@ -397,29 +317,28 @@ public class LearningWidget extends AppWidgetProvider
                     {
                         skill.put("time_start", currentTime);
                         skill.put("time_complete", currentTime + timeRemaining);
-                    } 
+                    }
                     catch (JSONException ex)
                     {
-                        
+
                     }
                 }
 
                 long timeStart = skill.optLong("time_start");
                 long timeComplete = skill.optLong("time_complete");
-                
-                if (timeComplete < (currentTime + 60)) 
+
+                if (timeComplete < (currentTime + 60))
                 {
                     // We must be nearly done. Clear the cache.
-                    if (cachedIconBitmap != null) 
+                    if (cachedIconBitmap != null)
                     {
                         cachedIconBitmap.recycle();
                         cachedIconBitmap = null;
                     }
-                    
-                    cachedSkill = null;
+
                     return;
                 }
-                
+
                 int elapsed = (int)(currentTime - timeStart);
                 int total = (int)(timeComplete - timeStart);
                 int remaining = total - elapsed;

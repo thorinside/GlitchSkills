@@ -7,26 +7,36 @@
     <uses-sdk
         android:minSdkVersion="8"
         android:targetSdkVersion="13" />
-    
-    <uses-permission android:name="android.permission.VIBRATE"/>
+
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+	<uses-permission android:name="android.permission.GET_ACCOUNTS" />
+	<uses-permission android:name="android.permission.USE_CREDENTIALS" />
+	<uses-permission android:name="android.permission.MANAGE_ACCOUNTS" />
+	<uses-permission android:name="android.permission.AUTHENTICATE_ACCOUNTS" />
+	<uses-permission android:name="android.permission.READ_SYNC_STATS" />
+	<uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
+	<uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
     
     <application
-        android:icon="@drawable/icon"
         android:hardwareAccelerated="true"
-        android:label="@string/app_name">
+        android:icon="@drawable/icon"
+        android:label="@string/app_name" >
         <activity
+            android:name=".GlitchSkillsActivity"
             android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize"
             android:label="@string/app_name"
-            android:name=".GlitchSkillsActivity"
+            android:launchMode="singleInstance"
             android:stateNotNeeded="true"
-            android:theme="@style/Theme.GlitchSkills" android:launchMode="singleInstance">
-            <intent-filter >
+            android:theme="@style/Theme.GlitchSkills" >
+            <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <intent-filter >
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
@@ -40,9 +50,9 @@
         </activity>
 
         <receiver
-            android:label="@string/widget_name"
-            android:name=".LearningWidget" >
-            <intent-filter >
+            android:name=".LearningWidget"
+            android:label="@string/widget_name" >
+            <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
 
@@ -52,7 +62,49 @@
         </receiver>
 
         <service android:name=".LearningWidget$UpdateService" />
+
+        <provider
+            android:name=".content.GlitchSkillsProvider"
+            android:authorities="org.nsdev.glitchskills"
+            android:enabled="true" >
+        </provider>
+
+        <!-- The authenticator service -->
+        <service
+            android:name=".authenticator.AuthenticationService"
+            android:exported="true">
+            <intent-filter>
+                <action
+                    android:name="android.accounts.AccountAuthenticator" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accounts.AccountAuthenticator"
+                android:resource="@xml/authenticator" />
+        </service>
         
+        <activity
+            android:name=".authenticator.AuthenticatorActivity"
+            android:label="@string/ui_activity_title"
+            android:theme="@android:style/Theme.Holo.Dialog"
+            android:excludeFromRecents="true"
+            >
+            <!--
+                No intent-filter here! This activity is only ever launched by
+                someone who explicitly knows the class name
+            -->
+        </activity>
+        
+        <service
+            android:name=".sync.GlitchSyncService"
+            android:exported="true" >
+            <intent-filter>
+                <action android:name="android.content.SyncAdapter" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.content.SyncAdapter"
+                android:resource="@xml/syncadapter" />
+        </service>
     </application>
 
 </manifest>
