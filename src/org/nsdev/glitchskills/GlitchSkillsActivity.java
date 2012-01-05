@@ -9,6 +9,7 @@ import org.json.JSONObject;
 import org.json.JSONTokener;
 import org.nsdev.glitchskills.LearningWidget.UpdateService;
 import org.nsdev.glitchskills.SkillsAdapter.SkillsCategory;
+import org.nsdev.glitchskills.SkillsAdapter.SkillsCategory.SortOrder;
 import org.nsdev.glitchskills.db.DatabaseHelper;
 import org.nsdev.glitchskills.db.QueuedSkill;
 import android.accounts.Account;
@@ -31,6 +32,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.preference.PreferenceManager;
 import android.support.v4.app.ActionBar;
 import android.support.v4.app.ActionBar.Tab;
 import android.support.v4.app.ActionBar.TabListener;
@@ -419,20 +421,20 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
         {
             String playerName = response.optString("player_name");
 
-            Log.e(TAG, "Adding account and updating auth token.");
+            if (Constants.DEBUG) Log.d(TAG, "Adding account and updating auth token.");
             AccountManager manager = AccountManager.get(this);
             account = new Account(playerName, Constants.ACCOUNT_TYPE);
             if (manager.addAccountExplicitly(account, null, null))
             {
-                Log.e(TAG, "Adding the account succeeded.");
+                if (Constants.DEBUG) Log.d(TAG, "Adding the account succeeded.");
                 ContentResolver.setSyncAutomatically(account, Constants.AUTHORITY, true);
             }
             else
             {
-                Log.e(TAG, "Adding the account has failed.");
+                if (Constants.DEBUG) Log.d(TAG, "Adding the account has failed.");
             }
             manager.setAuthToken(account, Constants.AUTHTOKEN_TYPE, glitch.accessToken);
-            Log.e(TAG, "Done adding account.");
+            if (Constants.DEBUG) Log.d(TAG, "Done adding account.");
             
             ContentResolver.addPeriodicSync(account, Constants.AUTHORITY, new Bundle(), 60 * 60);
             
@@ -533,7 +535,16 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
                 {
                     if (Constants.DEBUG) Log.i(TAG, listName+" not empty, so updating adapter.");
                     JSONObject skills = response.getJSONObject(listName);
-                    SkillsCategory category = new SkillsCategory(skills, title != null, title, hasAction, action, order);
+                    
+                    
+                    String sortModePreference = PreferenceManager.getDefaultSharedPreferences(this).getString("sort_order", "alpha");
+                    SortOrder sortOrder = SortOrder.alpha;
+                    if (sortModePreference.equals("time_asc"))
+                        sortOrder = SortOrder.timeAsc;
+                    else if (sortModePreference.equals("time_desc"))
+                        sortOrder = SortOrder.timeDesc;
+                    
+                    SkillsCategory category = new SkillsCategory(skills, title != null, title, hasAction, action, order, sortOrder);
                     adapter.reset(true);
                     adapter.addSkillsCategory(category);
                 }
@@ -689,6 +700,11 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
                 performRefresh();
                 return true;
             }
+            
+            case R.id.menu_item_settings:
+            {
+                startActivityForResult(new Intent(this, EditPreferences.class), 0);
+            }
         }
 
         return super.onOptionsItemSelected(item);
@@ -826,4 +842,12 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
             databaseHelper = null;
         }
     }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data)
+    {
+        if (Constants.DEBUG) Log.e(TAG, "onActivityResult: "+requestCode+" "+resultCode+" "+data);
+        performRefresh();
+    }
+    
 }

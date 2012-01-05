@@ -24,4 +24,17 @@
 		<item>Videos</item>
 		<item>Blog</item>
 	</string-array>
+	
+	<string-array name="sortOrder">
+	    <item>Alphabetical</item>
+	    <item>Increasing time</item>
+	 	<item>Decreasing time</item>
+	</string-array>
+
+	<string-array name="sortValues">
+	    <item>alpha</item>
+	    <item>time_asc</item>
+	 	<item>time_desc</item>
+	</string-array>
+		    
 </resources>

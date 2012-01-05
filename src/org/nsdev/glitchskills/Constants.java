@@ -48,5 +48,5 @@ public class Constants {
     public static final String REQUEST_METHOD = "request_method";
     public static final String URI = "uri";
     
-    public static final boolean DEBUG = true;
+    public static final boolean DEBUG = false;
 }

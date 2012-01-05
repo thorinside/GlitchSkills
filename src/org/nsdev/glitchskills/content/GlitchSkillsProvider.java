@@ -76,7 +76,7 @@ public class GlitchSkillsProvider extends ContentProvider
     @Override
     public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs)
     {
-        Log.e(TAG, String.format("update: %s %s %s %s", uri, values, selection, selectionArgs));
+        if (Constants.DEBUG) Log.e(TAG, String.format("update: %s %s %s %s", uri, values, selection, selectionArgs));
         
         String path = uri.getPath();
         if (path.startsWith("/"))

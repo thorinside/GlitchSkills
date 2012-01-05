@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    android:summary="Here you may change the way the program operates."
+    android:title="Glitch Skills Options" >
+
+    <CheckBoxPreference
+        android:defaultValue="true"
+        android:enabled="true"
+        android:key="notifications_enabled"
+        android:summary="Should we wake you up in the middle of the night when the magic rock finishes learning your skills?"
+        android:summaryOff="No thanks, I need more sleep!"
+        android:summaryOn="Yes please, with sugar on top!"
+        android:title="Notifications Enabled" />
+
+    <ListPreference
+        android:defaultValue="alpha"
+        android:entries="@array/sortOrder"
+        android:entryValues="@array/sortValues"
+        android:key="sort_order"
+        android:negativeButtonText="Cancel"
+        android:positiveButtonText="Ok"
+        android:summary="How would you like your skills ordered?"
+        android:title="Sort Order" />
+
+</PreferenceScreen>

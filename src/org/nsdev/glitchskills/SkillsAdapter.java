@@ -7,6 +7,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import android.content.Context;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,6 +23,7 @@ public class SkillsAdapter extends BaseAdapter
     private static final int SECONDS_PER_DAY = 60 * 60 * 24;
     private static final int SECONDS_PER_HOUR = 60 * 60;
     private static final int SECONDS_PER_MINUTE = 60;
+    public static final String TAG = "SkillsAdapter";
 
     Context context;
     
@@ -29,12 +31,14 @@ public class SkillsAdapter extends BaseAdapter
     {
         private String name;
         private int originalIndex;
+        private long timeRemaining;
         
-        public NameIndexEntry(String name, int originalIndex)
+        public NameIndexEntry(String name, long timeRemaining, int originalIndex)
         {
             super();
             setName(name);
             setOriginalIndex(originalIndex);
+            setTimeRemaining(timeRemaining);
         }
 
         public void setName(String name)
@@ -55,6 +59,16 @@ public class SkillsAdapter extends BaseAdapter
         public int getOriginalIndex()
         {
             return originalIndex;
+        }
+
+        public long getTimeRemaining()
+        {
+            return timeRemaining;
+        }
+
+        public void setTimeRemaining(long timeRemaining)
+        {
+            this.timeRemaining = timeRemaining;
         }
     }
 
@@ -77,7 +91,13 @@ public class SkillsAdapter extends BaseAdapter
         final int action;
         final boolean hasAction;
         
-        public SkillsCategory(JSONObject obj, boolean isTitleVisible, String title, boolean hasAction, int action, int order)
+        public enum SortOrder {
+            alpha,
+            timeAsc,
+            timeDesc,
+        };
+        
+        public SkillsCategory(JSONObject obj, boolean isTitleVisible, String title, boolean hasAction, int action, int order, SortOrder sortOrder)
         {
             this.order = order;
             this.jsonArray = obj.names();
@@ -94,7 +114,9 @@ public class SkillsAdapter extends BaseAdapter
                     try
                     {
                         String name = (String)jsonArray.get(i);
-                        nameIndex.add(new NameIndexEntry(name, i));
+                        JSONObject skill = (JSONObject)obj.get(name);
+                        long timeRemaining = skill.optLong("total_time");
+                        nameIndex.add(new NameIndexEntry(name, timeRemaining, i));
                     } 
                     catch (JSONException ex)
                     {
@@ -102,14 +124,47 @@ public class SkillsAdapter extends BaseAdapter
                 }
             }
             
-            Collections.sort(nameIndex, new Comparator<NameIndexEntry>()
+            if (sortOrder == SortOrder.alpha)
             {
-                @Override
-                public int compare(NameIndexEntry a, NameIndexEntry b)
+                if (Constants.DEBUG) Log.d(TAG, "Order Alpha");
+                Collections.sort(nameIndex, new Comparator<NameIndexEntry>()
                 {
-                    return a.getName().compareTo(b.getName());
-                }
-            });
+                    @Override
+                    public int compare(NameIndexEntry a, NameIndexEntry b)
+                    {
+                        return a.getName().compareTo(b.getName());
+                    }
+                });
+            } 
+            else if (sortOrder == SortOrder.timeAsc)
+            {
+                if (Constants.DEBUG) Log.d(TAG, "Order Time Asc");
+                Collections.sort(nameIndex, new Comparator<NameIndexEntry>()
+                {
+                    @Override
+                    public int compare(NameIndexEntry a, NameIndexEntry b)
+                    {
+                        if (a.getTimeRemaining() < b.getTimeRemaining()) return -1;
+                        if (a.getTimeRemaining() > b.getTimeRemaining()) return 1;
+                        return 0;
+                    }
+                });
+                
+            }
+            else if (sortOrder == SortOrder.timeDesc)
+            {
+                if (Constants.DEBUG) Log.d(TAG, "Order Time Desc");
+                Collections.sort(nameIndex, new Comparator<NameIndexEntry>()
+                {
+                    @Override
+                    public int compare(NameIndexEntry a, NameIndexEntry b)
+                    {
+                        if (a.getTimeRemaining() < b.getTimeRemaining()) return 1;
+                        if (a.getTimeRemaining() > b.getTimeRemaining()) return -1;
+                        return 0;
+                    }
+                });
+            }
             
         }
 

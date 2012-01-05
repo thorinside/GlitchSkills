@@ -24,6 +24,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.SystemClock;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
@@ -133,25 +134,31 @@ public class LearningWidget extends AppWidgetProvider
 
             if ("FinishedNotification".equals(action))
             {
-                String text = intent.getStringExtra("text");
-                NotificationManager nm = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
-                Notification notification = new Notification(R.drawable.ic_learning_finished, text, System.currentTimeMillis());
-                notification.flags |= Notification.FLAG_AUTO_CANCEL;
-                notification.flags |= Notification.FLAG_SHOW_LIGHTS;
-                notification.defaults = 0;
-                notification.defaults |= Notification.DEFAULT_SOUND;
-                notification.ledARGB = 0xFF00FF00;
-                notification.ledOnMS = 250;
-                notification.ledOffMS = 250;
-                notification.vibrate = new long[] {0L, 200L, 100L, 200L, 100L, 200L, 100L, 200L, 100L};
-
-                CharSequence contentTitle = "Glitch Skills";
-                CharSequence contentText = text;
-                Intent notificationIntent = new Intent(this, GlitchSkillsActivity.class);
-                PendingIntent contentIntent = PendingIntent.getActivity(this.getApplicationContext(), 0, notificationIntent, notification.flags);
-                notification.setLatestEventInfo(this, contentTitle, contentText, contentIntent);
-
-                nm.notify(0, notification);
+                boolean notify = 
+                    PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getBoolean("notifications_enabled", true);
+                
+                if (notify)
+                {
+                    String text = intent.getStringExtra("text");
+                    NotificationManager nm = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
+                    Notification notification = new Notification(R.drawable.ic_learning_finished, text, System.currentTimeMillis());
+                    notification.flags |= Notification.FLAG_AUTO_CANCEL;
+                    notification.flags |= Notification.FLAG_SHOW_LIGHTS;
+                    notification.defaults = 0;
+                    notification.defaults |= Notification.DEFAULT_SOUND;
+                    notification.ledARGB = 0xFF00FF00;
+                    notification.ledOnMS = 250;
+                    notification.ledOffMS = 250;
+                    notification.vibrate = new long[] {0L, 200L, 100L, 200L, 100L, 200L, 100L, 200L, 100L};
+    
+                    CharSequence contentTitle = "Glitch Skills";
+                    CharSequence contentText = text;
+                    Intent notificationIntent = new Intent(this, GlitchSkillsActivity.class);
+                    PendingIntent contentIntent = PendingIntent.getActivity(this.getApplicationContext(), 0, notificationIntent, notification.flags);
+                    notification.setLatestEventInfo(this, contentTitle, contentText, contentIntent);
+    
+                    nm.notify(0, notification);
+                }
                 
                 // Schedule a sync so that we know we're done
                 String playerName = getPlayerName();
@@ -209,6 +216,11 @@ public class LearningWidget extends AppWidgetProvider
             }
             else
             {
+                currentSkill = null;
+                cachedIconBitmap = null;
+                cachedIconUrl = null;
+                resetLearningFinishedNotification(context, null);
+                
                 // Set up the default since we probably don't know the user yet
                 updateViews.setImageViewResource(R.id.skill_icon, R.drawable.icon);
                 updateViews.setTextViewText(R.id.skill_title, context.getResources().getText(R.string.app_name));
@@ -268,8 +280,7 @@ public class LearningWidget extends AppWidgetProvider
                 long timeComplete = skill.optLong("time_complete") * 1000;
 
                 // Use for debugging notifications only
-                // timeComplete = System.currentTimeMillis()
-                // + 2000;
+                // if (Constants.DEBUG) timeComplete = System.currentTimeMillis() + 2000;
 
                 Date d = new Date(timeComplete);
                 if (Constants.DEBUG) Log.i("GlitchSkills", "Scheduled notification at " + d.toLocaleString());
