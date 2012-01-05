@@ -202,6 +202,7 @@ public class LearningWidget extends AppWidgetProvider
                         else
                         {
                             updateNotLearning(updateViews);
+                            resetLearningFinishedNotification(context, null);
                         }
                     }
                 }
@@ -271,9 +272,17 @@ public class LearningWidget extends AppWidgetProvider
                 // + 2000;
 
                 Date d = new Date(timeComplete);
-                Log.i("GlitchSkills", "Scheduled notification at " + d.toLocaleString());
+                if (Constants.DEBUG) Log.i("GlitchSkills", "Scheduled notification at " + d.toLocaleString());
 
                 am.set(AlarmManager.RTC_WAKEUP, timeComplete, pend);
+            }
+            else
+            {
+                Intent alarm = new Intent(ctx, UpdateService.class);
+                alarm.setAction("FinishedNotification");
+                PendingIntent pend = PendingIntent.getService(ctx, 0, alarm, PendingIntent.FLAG_CANCEL_CURRENT);
+                AlarmManager am = (AlarmManager)getSystemService(ALARM_SERVICE);
+                am.cancel(pend);
             }
         }
 
