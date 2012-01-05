@@ -325,10 +325,11 @@ public class SkillsAdapter extends BaseAdapter
                     int elapsed;
                     int total;
                     int remaining;
+
+                    long currentTime = System.currentTimeMillis() / 1000L;
     
                     if (timeStart != 0 && timeComplete != 0)
                     {
-                        long currentTime = System.currentTimeMillis() / 1000L;
     
                         elapsed = (int)(currentTime - timeStart);
                         total = (int)(timeComplete - timeStart);
@@ -342,8 +343,8 @@ public class SkillsAdapter extends BaseAdapter
                         
                         if (isUnlearnSkill && timeRemaining != 0)
                         {
-                            o.put("time_start", System.currentTimeMillis() / 1000L);
-                            o.put("time_complete", System.currentTimeMillis() / 1000L + timeRemaining);
+                            o.put("time_start", currentTime);
+                            o.put("time_complete", currentTime + timeRemaining);
                         }
                         else if (isUnlearnSkill && timeRemaining == 0)
                         {

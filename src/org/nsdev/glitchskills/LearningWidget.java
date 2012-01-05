@@ -5,6 +5,7 @@ import java.net.MalformedURLException;
 import java.util.Date;
 import org.json.JSONException;
 import org.json.JSONObject;
+import android.accounts.Account;
 import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -13,21 +14,19 @@ import android.app.Service;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.AsyncTask;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
-import com.tinyspeck.android.Glitch;
-import com.tinyspeck.android.GlitchRequest;
-import com.tinyspeck.android.GlitchRequestDelegate;
-import com.tinyspeck.android.GlitchSessionDelegate;
 
 public class LearningWidget extends AppWidgetProvider
 {
@@ -59,6 +58,8 @@ public class LearningWidget extends AppWidgetProvider
     {
         private static Bitmap cachedIconBitmap;
         private static String cachedIconUrl;
+        
+        private JSONObject currentSkill;
 
         private final class LoadIconAsyncTask extends AsyncTask<String, Object, Bitmap>
         {
@@ -112,11 +113,6 @@ public class LearningWidget extends AppWidgetProvider
             protected void onPostExecute(Bitmap result)
             {
                 updateIconAndUpdateAppWidget(context, updateViews, result);
-
-                if (cachedIconBitmap != null && result != cachedIconBitmap)
-                {
-                    cachedIconBitmap.recycle();
-                }
                 cachedIconBitmap = result;
             }
         }
@@ -156,6 +152,18 @@ public class LearningWidget extends AppWidgetProvider
                 notification.setLatestEventInfo(this, contentTitle, contentText, contentIntent);
 
                 nm.notify(0, notification);
+                
+                // Schedule a sync so that we know we're done
+                String playerName = getPlayerName();
+                if (playerName != null)
+                {
+                    Account account = new Account(playerName, Constants.ACCOUNT_TYPE);
+                    Bundle bundle = new Bundle();
+                    bundle.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
+
+                    ContentResolver.requestSync(account, Constants.AUTHORITY, bundle);
+                }
+
             }
             else
             {
@@ -221,16 +229,27 @@ public class LearningWidget extends AppWidgetProvider
         private void updateSkill(final Context context, final RemoteViews updateViews, JSONObject newSkill, boolean isUnlearning)
         {
             String name = newSkill.names().optString(0);
+            
             if (name == null)
                 return;
-            final JSONObject skill = newSkill.optJSONObject(name);
+            
+            JSONObject skill = newSkill.optJSONObject(name);
 
-            updateSkillText(updateViews, skill, isUnlearning);
+            // Remember the current skill and use that remembered version until a change is
+            // detected so we can track unlearning better.
+            if (currentSkill == null || !currentSkill.optString("class_tsid").equals(skill.optString("class_tsid")))
+            {
+                cachedIconBitmap = null;
+                cachedIconUrl = null;
+                currentSkill = skill;
+            }
 
-            resetLearningFinishedNotification(context, skill);
+            updateSkillText(updateViews, currentSkill, isUnlearning);
+
+            resetLearningFinishedNotification(context, currentSkill);
 
             LoadIconAsyncTask iconTask = new LoadIconAsyncTask(context, updateViews);
-            iconTask.execute(skill.optString("icon_100"));
+            iconTask.execute(currentSkill.optString("icon_100"));
         }
 
         private void resetLearningFinishedNotification(Context ctx, JSONObject skill)
@@ -260,6 +279,9 @@ public class LearningWidget extends AppWidgetProvider
 
         private void updateNotLearning(RemoteViews updateViews)
         {
+            // Forget we were learning something
+            currentSkill = null;
+            
             JSONObject response = ContentHelper.getContent(getApplicationContext(), Constants.PLAYERS_INFO);
 
             if (response != null && response.optInt("ok") == 1)
@@ -292,6 +314,45 @@ public class LearningWidget extends AppWidgetProvider
             updateViews.setTextViewText(R.id.skill_description, skill.optString("description"));
 
             int timeRemaining = skill.optInt("time_remaining");
+            long timeStart = skill.optLong("time_start");
+            long timeComplete = skill.optLong("time_complete");
+
+            int elapsed;
+            int total;
+            int remaining;
+
+            long currentTime = System.currentTimeMillis() / 1000L;
+
+            if (timeStart != 0 && timeComplete != 0)
+            {
+                elapsed = (int)(currentTime - timeStart);
+                total = (int)(timeComplete - timeStart);
+                remaining = total - elapsed;
+            }
+            else
+            {
+                total = skill.optInt("total_time");
+                elapsed = total - timeRemaining;
+                remaining = timeRemaining;
+                
+                if (isUnlearning && timeRemaining != 0)
+                {
+                    try
+                    {
+                    skill.put("time_start", currentTime);
+                    skill.put("time_complete", currentTime + timeRemaining);
+                    } 
+                    catch (JSONException ex)
+                    {
+                        ex.printStackTrace();
+                    }
+                }
+                else if (isUnlearning && timeRemaining == 0)
+                {
+                    remaining = total;
+                    elapsed = 0;
+                }
+            }
 
             if (timeRemaining != 0 || isUnlearning)
             {
@@ -300,46 +361,6 @@ public class LearningWidget extends AppWidgetProvider
                     updateViews.setViewVisibility(R.id.skill_progress, View.VISIBLE);
                     updateViews.setViewVisibility(R.id.skill_time_to_learn, View.VISIBLE);
                     updateViews.setViewVisibility(R.id.skill_time_to_learn_label, View.VISIBLE);
-                }
-
-                long currentTime = System.currentTimeMillis() / 1000L;
-
-                if (isUnlearning && timeRemaining != 0)
-                {
-                    try
-                    {
-                        skill.put("time_start", currentTime);
-                        skill.put("time_complete", currentTime + timeRemaining);
-                    }
-                    catch (JSONException ex)
-                    {
-
-                    }
-                }
-
-                long timeStart = skill.optLong("time_start");
-                long timeComplete = skill.optLong("time_complete");
-
-                if (timeComplete < (currentTime + 60))
-                {
-                    // We must be nearly done. Clear the cache.
-                    if (cachedIconBitmap != null)
-                    {
-                        cachedIconBitmap.recycle();
-                        cachedIconBitmap = null;
-                    }
-
-                    return;
-                }
-
-                int elapsed = (int)(currentTime - timeStart);
-                int total = (int)(timeComplete - timeStart);
-                int remaining = total - elapsed;
-
-                if (isUnlearning && timeRemaining == 0)
-                {
-                    remaining = total;
-                    elapsed = 0;
                 }
 
                 updateViews.setProgressBar(R.id.skill_progress, total, elapsed, false);
@@ -364,6 +385,18 @@ public class LearningWidget extends AppWidgetProvider
             ComponentName thisWidget = new ComponentName(context, LearningWidget.class);
             AppWidgetManager manager = AppWidgetManager.getInstance(context);
             manager.updateAppWidget(thisWidget, updateViews);
+        }
+        
+        private String getPlayerName()
+        {
+            JSONObject response = ContentHelper.getContent(getApplicationContext(), Constants.PLAYERS_INFO);
+
+            if (response != null && response.optInt("ok") == 1)
+            {
+                return response.optString("player_name");
+            }
+            
+            return null;
         }
     }
 }
