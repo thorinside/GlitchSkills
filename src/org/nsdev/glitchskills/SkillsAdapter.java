@@ -277,7 +277,10 @@ public class SkillsAdapter extends BaseAdapter
     @Override
     public long getItemId(int index)
     {
-        return getItem(index).hashCode();
+        if (getItem(index) != null)
+            return getItem(index).hashCode();
+        
+        return 0;
     }
 
     static class ViewHolder
@@ -299,7 +302,9 @@ public class SkillsAdapter extends BaseAdapter
     @Override
     public int getItemViewType(int position)
     {
-        return entries.get(position).entryType;
+        if (entries != null && entries.size() >= position)
+            return entries.get(position).entryType;
+        return 0;
     }
 
     @Override

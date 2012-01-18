@@ -72,8 +72,6 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
     static final int DIALOG_LOGIN_FAIL_ID = 0;
     static final int DIALOG_REQUEST_FAIL_ID = 1;
 
-
-
     private Glitch glitch;
     Handler handler = new Handler();
     private ListFragment studyingFragment;
@@ -81,7 +79,12 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
     private ClickableListFragment unlearnableFragment;
     private SkillsTreeFragment skillsTreeFragment;
     private DatabaseHelper databaseHelper;
-    
+    private ViewPager fragmentPager;
+    private Account account;
+    private BroadcastReceiver receiver;
+    private boolean isPaused;
+
+
     private Runnable learningTimeUpdateHandler = new Runnable()
     {
         @Override
@@ -596,7 +599,8 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
     @Override
     public void requestFailed(GlitchRequest request)
     {
-        showDialog(DIALOG_REQUEST_FAIL_ID);
+        if (!isPaused)
+            showDialog(DIALOG_REQUEST_FAIL_ID);
     }
 
     @Override
@@ -646,12 +650,6 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
     public void onTabReselected(Tab tab, FragmentTransaction ft)
     {
     }
-
-    private ViewPager fragmentPager;
-
-    private Account account;
-
-    private BroadcastReceiver receiver;
 
     @Override
     public void onTabSelected(Tab tab, FragmentTransaction ft)
@@ -817,6 +815,7 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
     {
         super.onPause();
         handler.removeCallbacks(learningTimeUpdateHandler);
+        isPaused = true;
     }
 
     @Override
@@ -825,6 +824,7 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
         super.onResume();
         if (getSupportActionBar().getSelectedTab().getPosition() == 0)
             handler.postDelayed(learningTimeUpdateHandler, 0);
+        isPaused = false;
     }
 
     @Override

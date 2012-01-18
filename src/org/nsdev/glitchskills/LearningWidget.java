@@ -77,35 +77,45 @@ public class LearningWidget extends AppWidgetProvider
             @Override
             protected Bitmap doInBackground(String... args)
             {
-                String iconUrl = args[0];
-
-                if (iconUrl != null)
+                try
                 {
-                    if (cachedIconUrl != null && iconUrl.equals(cachedIconUrl) && cachedIconBitmap != null)
+                    String iconUrl = args[0];
+    
+                    if (iconUrl != null)
                     {
-                        if (Constants.DEBUG)
-                            Log.d(TAG, "Returning cached icon bitmap.");
-                        return cachedIconBitmap;
+                        if (cachedIconUrl != null && iconUrl.equals(cachedIconUrl) && cachedIconBitmap != null)
+                        {
+                            if (Constants.DEBUG)
+                                Log.d(TAG, "Returning cached icon bitmap.");
+                            return cachedIconBitmap;
+                        }
+    
+                        Bitmap b = null;
+                        try
+                        {
+                            if (Constants.DEBUG)
+                                Log.d(TAG, "Downloading icon: " + iconUrl);
+                            b = BitmapFactory.decodeStream(((java.io.InputStream)new java.net.URL(iconUrl).getContent()));
+                            cachedIconUrl = iconUrl;
+                            return b;
+                        }
+                        catch (MalformedURLException e)
+                        {
+                            if (Constants.DEBUG) e.printStackTrace(); 
+                        }
+                        catch (IOException e)
+                        {
+                            if (Constants.DEBUG) e.printStackTrace(); 
+                        }
+                        catch (NullPointerException e)
+                        {
+                            if (Constants.DEBUG) e.printStackTrace(); 
+                        }
                     }
-
-                    Bitmap b = null;
-                    try
-                    {
-                        if (Constants.DEBUG)
-                            Log.d(TAG, "Downloading icon: " + iconUrl);
-                        b = BitmapFactory.decodeStream(((java.io.InputStream)new java.net.URL(iconUrl).getContent()));
-                        cachedIconUrl = iconUrl;
-                        return b;
-                    }
-                    catch (MalformedURLException e)
-                    {
-                    }
-                    catch (IOException e)
-                    {
-                    }
-                    catch (NullPointerException e)
-                    {
-                    }
+                } 
+                catch (Exception e)
+                {
+                    if (Constants.DEBUG) e.printStackTrace(); 
                 }
                 return null;
             }
