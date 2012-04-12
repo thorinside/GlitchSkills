@@ -581,18 +581,20 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
 
             // Clear out the cache
             getContentResolver().delete(Uri.parse("content://"+Constants.AUTHORITY), null, null);
-            
-            AccountManager manager = AccountManager.get(this);
-            manager.removeAccount(account, new AccountManagerCallback<Boolean>()
+
+            if (account != null)
             {
-                
-                @Override
-                public void run(AccountManagerFuture<Boolean> arg0)
+                AccountManager manager = AccountManager.get(this);
+                manager.removeAccount(account, new AccountManagerCallback<Boolean>()
                 {
-                }
-            }, handler);
-            
-            return true;
+                    @Override
+                    public void run(AccountManagerFuture<Boolean> arg0)
+                    {
+                    }
+                }, handler);
+                
+                return true;
+            }
         }
         return false;
     }
