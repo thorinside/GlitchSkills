@@ -499,6 +499,7 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
         else if (method.equals(Constants.SKILLS_LIST_LEARNING))
         {
             updateListFragment(studyingFragment, "learning", "You're not learning or unlearning anything. An idle magic rock is not a happy magic rock.", response, "Learning", false, 0, 0);
+            skillsTreeFragment.setLearning(response);
         }
         else if (method.equals(Constants.SKILLS_LIST_UNLEARNING))
         {

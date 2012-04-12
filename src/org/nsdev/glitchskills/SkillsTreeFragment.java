@@ -13,15 +13,23 @@ public class SkillsTreeFragment extends Fragment
     SkillTreeView skillTree;
     JSONObject learnedResponse;
     JSONObject availableResponse;
+    JSONObject learningResponse;
     
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
     {
         View v = inflater.inflate(R.layout.skill_tree_layout, null);
         skillTree = (SkillTreeView)v.findViewById(R.id.skillTreeView1);
+        if (learningResponse != null) skillTree.setLearning(learningResponse);
         if (learnedResponse != null) skillTree.setLearned(learnedResponse);
         if (availableResponse != null) skillTree.setAvailable(availableResponse);
         return v;
+    }
+    
+    public void setLearning(JSONObject response)
+    {
+        learningResponse = response;
+        if (skillTree != null) skillTree.setLearning(response);
     }
 
     public void setLearned(JSONObject response)

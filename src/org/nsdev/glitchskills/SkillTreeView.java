@@ -64,6 +64,8 @@ public class SkillTreeView extends View
 
     private void initialize(Context context)
     {
+        if (isInEditMode()) return;
+           
         XmlResourceParser parser = context.getResources().getXml(R.xml.skill_tree);
 
         try
@@ -97,7 +99,7 @@ public class SkillTreeView extends View
             e.printStackTrace();
         }
 
-        sprites = BitmapFactory.decodeResource(getResources(), R.drawable.skill_table_73379);
+        sprites = BitmapFactory.decodeResource(getResources(), R.drawable.skill_table_87968);
         check = BitmapFactory.decodeResource(getResources(), R.drawable.check_tiny_stroke);
     }
 
@@ -165,6 +167,38 @@ public class SkillTreeView extends View
         super.onTouchEvent(event);
         return true;
     }
+    
+    public void setLearning(JSONObject response)
+    {
+        if (Constants.DEBUG)
+            Log.e("SkillTreeView", "Got Learning Response");
+        
+        // Go through the skills, and update our data structure.
+        try
+        {
+            JSONObject skills = response.getJSONObject("learning");
+            JSONArray names = skills.names();
+            for (int i = 0; i < names.length(); i++)
+            {
+                String id = names.getString(i);
+
+                SkillBlock block = blockIndex.get(id);
+                if (block != null)
+                {
+                    block.available = true;
+                }
+            }
+        }
+        catch (JSONException e)
+        {
+            if (Constants.DEBUG)
+                e.printStackTrace();
+        }
+
+        postInvalidate();
+
+
+    }
 
     public void setLearned(JSONObject response)
     {
@@ -194,7 +228,6 @@ public class SkillTreeView extends View
         }
         catch (JSONException e)
         {
-            // TODO Auto-generated catch block
             if (Constants.DEBUG)
                 e.printStackTrace();
         }
@@ -207,11 +240,6 @@ public class SkillTreeView extends View
     {
         if (Constants.DEBUG)
             Log.e("SkillTreeView", "Got Available Response");
-
-        for (SkillBlock block: blocks)
-        {
-            block.available = false;
-        }
 
         try
         {
@@ -230,7 +258,6 @@ public class SkillTreeView extends View
         }
         catch (JSONException e)
         {
-            // TODO Auto-generated catch block
             if (Constants.DEBUG)
                 e.printStackTrace();
         }
