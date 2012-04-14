@@ -1,10 +1,10 @@
 package org.nsdev.glitchskills;
 
 import org.json.JSONObject;
-import android.support.v4.view.ActionMode;
-import android.support.v4.view.Menu;
-import android.support.v4.view.MenuItem;
-import android.support.v4.view.ActionMode.Callback;
+import com.actionbarsherlock.view.ActionMode;
+import com.actionbarsherlock.view.ActionMode.Callback;
+import com.actionbarsherlock.view.Menu;
+import com.actionbarsherlock.view.MenuItem;
 
 class CancelUnlearningActionMode implements Callback
 {
@@ -35,7 +35,7 @@ class CancelUnlearningActionMode implements Callback
     {
 
         mode.setTitle(title);
-        this.glitchSkillsActivity.getMenuInflater().inflate(R.menu.cancel_unlearn_menu, menu);
+        this.glitchSkillsActivity.getSupportMenuInflater().inflate(R.menu.cancel_unlearn_menu, menu);
 
         return true;
     }

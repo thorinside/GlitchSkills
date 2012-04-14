@@ -1,10 +1,10 @@
 package org.nsdev.glitchskills;
 
 import org.json.JSONObject;
-import android.support.v4.view.ActionMode;
-import android.support.v4.view.Menu;
-import android.support.v4.view.MenuItem;
-import android.support.v4.view.ActionMode.Callback;
+import com.actionbarsherlock.view.ActionMode;
+import com.actionbarsherlock.view.ActionMode.Callback;
+import com.actionbarsherlock.view.Menu;
+import com.actionbarsherlock.view.MenuItem;
 
 class LearnSkillActionMode implements Callback
 {
@@ -17,6 +17,21 @@ class LearnSkillActionMode implements Callback
         this.glitchSkillsActivity = glitchSkillsActivity;
         this.title = title;
         this.skill = skill;
+    }
+
+    @Override
+    public boolean onCreateActionMode(ActionMode mode, Menu menu)
+    {
+        mode.setTitle(title);
+        this.glitchSkillsActivity.getSupportMenuInflater().inflate(R.menu.learn_menu, menu);
+
+        return true;
+    }
+
+    @Override
+    public boolean onPrepareActionMode(ActionMode mode, Menu menu)
+    {
+        return false;
     }
 
     @Override
@@ -37,22 +52,9 @@ class LearnSkillActionMode implements Callback
     }
 
     @Override
-    public boolean onCreateActionMode(ActionMode mode, Menu menu)
-    {
-        mode.setTitle(title);
-        this.glitchSkillsActivity.getMenuInflater().inflate(R.menu.learn_menu, menu);
-
-        return true;
-    }
-
-    @Override
     public void onDestroyActionMode(ActionMode mode)
     {
-    }
-
-    @Override
-    public boolean onPrepareActionMode(ActionMode mode, Menu menu)
-    {
-        return false;
+        // TODO Auto-generated method stub
+        
     }
 }

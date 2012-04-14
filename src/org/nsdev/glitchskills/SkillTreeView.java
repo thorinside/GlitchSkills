@@ -142,7 +142,6 @@ public class SkillTreeView extends View
     {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
 
-        // int availableWidth = MeasureSpec.getSize(widthMeasureSpec);
         int availableHeight = (int)(MeasureSpec.getSize(heightMeasureSpec) * 8 / 10f);
 
         int width = 0;

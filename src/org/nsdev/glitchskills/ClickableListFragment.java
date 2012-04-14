@@ -1,13 +1,13 @@
 package org.nsdev.glitchskills;
 
 import org.nsdev.glitchskills.SkillsAdapter.SkillsListEntry;
+import com.actionbarsherlock.app.SherlockListFragment;
+import android.app.Activity;
 import android.os.Bundle;
-import android.support.v4.app.ListFragment;
-import android.support.v4.app.SupportActivity;
 import android.view.View;
 import android.widget.ListView;
 
-public class ClickableListFragment extends ListFragment {
+public class ClickableListFragment extends SherlockListFragment {
 
     private GlitchSkillsActivity glitchSkillsActivity;
 
@@ -31,9 +31,10 @@ public class ClickableListFragment extends ListFragment {
         SkillsListEntry entry = (SkillsListEntry)adapter.getItem(position);
         glitchSkillsActivity.onListItemClick(adapter.getSkill(position), entry.category.action);
     }
-    
+
     @Override
-    public void onAttach(SupportActivity activity) {
+    public void onAttach(Activity activity)
+    {
         super.onAttach(activity);
         glitchSkillsActivity = (GlitchSkillsActivity)activity;
     }
@@ -44,4 +45,5 @@ public class ClickableListFragment extends ListFragment {
         super.onViewCreated(view, savedInstanceState);
         getListView().setFastScrollEnabled(true);
     }
+
 }

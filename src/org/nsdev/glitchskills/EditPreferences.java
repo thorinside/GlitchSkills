@@ -2,7 +2,6 @@ package org.nsdev.glitchskills;
 
 import android.os.Bundle;
 import android.preference.PreferenceActivity;
-import android.support.v4.app.ActionBar;
 
 public class EditPreferences extends PreferenceActivity
 {

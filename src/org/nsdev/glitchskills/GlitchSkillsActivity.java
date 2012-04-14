@@ -33,16 +33,10 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.preference.PreferenceManager;
-import android.support.v4.app.ActionBar;
-import android.support.v4.app.ActionBar.Tab;
-import android.support.v4.app.ActionBar.TabListener;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v4.app.ListFragment;
-import android.support.v4.view.Menu;
-import android.support.v4.view.MenuItem;
 import android.support.v4.view.ViewPager;
 import android.support.v4.view.ViewPager.OnPageChangeListener;
 import android.util.Log;
@@ -50,6 +44,12 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
+import com.actionbarsherlock.app.ActionBar;
+import com.actionbarsherlock.app.ActionBar.Tab;
+import com.actionbarsherlock.app.ActionBar.TabListener;
+import com.actionbarsherlock.app.SherlockFragmentActivity;
+import com.actionbarsherlock.view.Menu;
+import com.actionbarsherlock.view.MenuItem;
 import com.github.droidfu.cachefu.ImageCache;
 import com.github.droidfu.imageloader.ImageLoader;
 import com.j256.ormlite.android.apptools.OpenHelperManager;
@@ -59,11 +59,9 @@ import com.tinyspeck.android.GlitchRequest;
 import com.tinyspeck.android.GlitchRequestDelegate;
 import com.tinyspeck.android.GlitchSessionDelegate;
 
-public class GlitchSkillsActivity extends FragmentActivity implements GlitchSessionDelegate, GlitchRequestDelegate, TabListener
+public class GlitchSkillsActivity extends SherlockFragmentActivity implements GlitchSessionDelegate, GlitchRequestDelegate, TabListener
 {
     static final String TAG = "GlitchSkills";
-
-    static final boolean IS_HONEYCOMB = Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB;
 
     private static final int ACTION_LEARN_OR_QUEUE = 1;
     private static final int ACTION_CANCEL_UNLEARNING = 2;
@@ -83,7 +81,6 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
     private Account account;
     private BroadcastReceiver receiver;
     private boolean isPaused;
-
 
     private Runnable learningTimeUpdateHandler = new Runnable()
     {
@@ -289,69 +286,12 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
         {
             final String title = String.format("%s", skill.optString("name"));
 
-            if (IS_HONEYCOMB)
-            {
-                if (action == ACTION_LEARN_OR_QUEUE)
-                    startActionMode(new LearnSkillActionMode(this, title, skill));
-                else if (action == ACTION_UNLEARN)
-                    startActionMode(new UnlearnSkillActionMode(this, title, skill));
-                else if (action == ACTION_CANCEL_UNLEARNING)
-                    startActionMode(new CancelUnlearningActionMode(this, title, skill));
-            }
-            else
-            {
-                if (action == ACTION_LEARN_OR_QUEUE)
-                {
-                    // Show a confirmation dialog
-                    Builder confirmationDialogBuilder = new AlertDialog.Builder(GlitchSkillsActivity.this);
-                    confirmationDialogBuilder.setMessage(title);
-                    confirmationDialogBuilder.setCancelable(true);
-                    confirmationDialogBuilder.setNegativeButton(android.R.string.cancel, null);
-                    confirmationDialogBuilder.setPositiveButton(R.string.learn, new OnClickListener()
-                    {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which)
-                        {
-                            learnSkill(skill);
-                        }
-                    });
-                    confirmationDialogBuilder.create().show();
-                }
-                else if (action == ACTION_UNLEARN)
-                {
-                    // Show a confirmation dialog
-                    Builder confirmationDialogBuilder = new AlertDialog.Builder(GlitchSkillsActivity.this);
-                    confirmationDialogBuilder.setMessage(title);
-                    confirmationDialogBuilder.setCancelable(true);
-                    confirmationDialogBuilder.setNegativeButton(android.R.string.cancel, null);
-                    confirmationDialogBuilder.setPositiveButton(R.string.unlearn, new OnClickListener()
-                    {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which)
-                        {
-                            unlearnSkill(skill);
-                        }
-                    });
-                    confirmationDialogBuilder.create().show();
-                }
-                else if (action == ACTION_CANCEL_UNLEARNING)
-                {
-                    // Show a confirmation dialog
-                    Builder confirmationDialogBuilder = new AlertDialog.Builder(GlitchSkillsActivity.this);
-                    confirmationDialogBuilder.setMessage(title);
-                    confirmationDialogBuilder.setCancelable(true);
-                    confirmationDialogBuilder.setNegativeButton(android.R.string.cancel, null);
-                    confirmationDialogBuilder.setPositiveButton(R.string.cancel_unlearn, new OnClickListener()
-                    {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which)
-                        {
-                            cancelUnlearnSkill(skill);
-                        }
-                    });
-                    confirmationDialogBuilder.create().show();
-                }
-            }
+            if (action == ACTION_LEARN_OR_QUEUE)
+                startActionMode(new LearnSkillActionMode(this, title, skill));
+            else if (action == ACTION_UNLEARN)
+                startActionMode(new UnlearnSkillActionMode(this, title, skill));
+            else if (action == ACTION_CANCEL_UNLEARNING)
+                startActionMode(new CancelUnlearningActionMode(this, title, skill));
         }
     }
 
@@ -650,11 +590,6 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
     }
 
     @Override
-    public void onTabReselected(Tab tab, FragmentTransaction ft)
-    {
-    }
-
-    @Override
     public void onTabSelected(Tab tab, FragmentTransaction ft)
     {
         if (glitch == null)
@@ -669,6 +604,11 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
     }
 
     @Override
+    public void onTabReselected(Tab tab, FragmentTransaction ft)
+    {
+    }
+
+    @Override
     public void onTabUnselected(Tab tab, FragmentTransaction ft)
     {
         if (tab.getPosition() == 0)
@@ -678,7 +618,7 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
     @Override
     public boolean onCreateOptionsMenu(Menu menu)
     {
-        getMenuInflater().inflate(R.menu.main_menu, menu);
+        getSupportMenuInflater().inflate(R.menu.main_menu, menu);
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -852,5 +792,5 @@ public class GlitchSkillsActivity extends FragmentActivity implements GlitchSess
         if (Constants.DEBUG) Log.e(TAG, "onActivityResult: "+requestCode+" "+resultCode+" "+data);
         performRefresh();
     }
-    
+
 }

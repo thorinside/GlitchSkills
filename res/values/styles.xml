@@ -19,9 +19,14 @@
 
     <!-- Variation on the Holo Light theme that styles the Action Bar -->
     <style name="Theme.GlitchSkills" parent="Theme.Sherlock.Light">
-        <item name="abLogo">@drawable/ad_logo</item>
-        <item name="abDisplayOptions">useLogo|showHome</item>
-        <item name="abTitle">@null</item>
+        <item name="logo">@drawable/ad_logo</item>
+        <!--  <item name="displayOptions">useLogo</item> -->
+        <item name="title">@null</item>
+
+        <item name="android:logo">@drawable/ad_logo</item>
+        <!-- <item name="android:displayOptions">useLogo</item> -->
+        <item name="android:title">@null</item>
+        
         <!-- 
         <item name="selectableItemBackground">@drawable/ad_selectable_background</item>
         <item name="popupMenuStyle">@style/MyPopupMenu</item>
@@ -58,12 +63,13 @@
     </style>
 
     <!-- style the list navigation -->
+    <!-- 
     <style name="MyDropDownNav" parent="Widget.Sherlock.Light.Spinner">
         <item name="android:background">@drawable/ad_spinner_background_holo_light</item>
         <item name="android:popupBackground">@drawable/ad_menu_dropdown_panel_holo_light</item>
         <item name="android:dropDownSelector">@drawable/ad_selectable_background</item>
     </style>
-
+	 -->
     <!--
              the following can be used to style the overflow menu button
              only do this if you have an *extremely* good reason to!!
