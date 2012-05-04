@@ -99,7 +99,7 @@ public class SkillTreeView extends View
             e.printStackTrace();
         }
 
-        sprites = BitmapFactory.decodeResource(getResources(), R.drawable.skill_table_87968);
+        sprites = BitmapFactory.decodeResource(getResources(), R.drawable.skill_table_93665);
         check = BitmapFactory.decodeResource(getResources(), R.drawable.check_tiny_stroke);
     }
 
