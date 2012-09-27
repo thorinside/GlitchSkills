@@ -7,3 +7,5 @@ to do, and you should go very far away from here and go mine Sparkly Rock
 for your pennance.
 
 To build this, you need ActionBarSherlock, as well as my own fork of the Android Glitch SDK.
+
+This application isn't in active development any longer. The skill tree maintenance was what killed it for me. Perhaps, I'll contact the developer of Glitch and see if they would be interested in providing an API for that.
