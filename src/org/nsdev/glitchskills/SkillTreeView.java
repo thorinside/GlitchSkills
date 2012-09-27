@@ -64,6 +64,8 @@ public class SkillTreeView extends View
 
     private void initialize(Context context)
     {
+        if (isInEditMode()) return;
+           
         XmlResourceParser parser = context.getResources().getXml(R.xml.skill_tree);
 
         try
